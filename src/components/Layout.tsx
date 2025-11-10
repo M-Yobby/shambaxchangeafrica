@@ -3,7 +3,7 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
-import { Home, TrendingUp, Store, Users, LogOut, Sprout, Trophy } from "lucide-react";
+import { Home, TrendingUp, Store, Users, LogOut, Sprout, Trophy, ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { NotificationCenter } from "./NotificationCenter";
 import { UserStatsDisplay } from "./UserStatsDisplay";
@@ -63,6 +63,7 @@ const Layout = ({ children }: LayoutProps) => {
     { path: "/", label: "Dashboard", icon: Home },
     { path: "/market-intel", label: "Market Intel", icon: TrendingUp },
     { path: "/marketplace", label: "Marketplace", icon: Store },
+    { path: "/orders", label: "Orders", icon: ShoppingBag },
     { path: "/social", label: "Social", icon: Users },
     { path: "/leaderboards", label: "Leaderboards", icon: Trophy },
   ];
@@ -127,8 +128,8 @@ const Layout = ({ children }: LayoutProps) => {
         {children}
       </main>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-card shadow-lg">
-        <div className="grid grid-cols-5 gap-1 p-2">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-card shadow-lg z-50">
+        <div className="grid grid-cols-6 gap-1 p-2">
           {navItems.map((item) => (
             <Link key={item.path} to={item.path}>
               <Button
@@ -137,7 +138,7 @@ const Layout = ({ children }: LayoutProps) => {
                 className="w-full flex-col h-auto py-2 gap-1"
               >
                 <item.icon className="w-4 h-4" />
-                <span className="text-[10px]">{item.label}</span>
+                <span className="text-[9px]">{item.label}</span>
               </Button>
             </Link>
           ))}

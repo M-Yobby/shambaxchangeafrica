@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, MessageCircle, Package, Loader2 } from "lucide-react";
+import { MapPin, MessageCircle, Package, Loader2, ShoppingCart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import AddListingDialog from "@/components/AddListingDialog";
+import { CreateOrderDialog } from "@/components/CreateOrderDialog";
+import { MessagingDialog } from "@/components/MessagingDialog";
 
 interface Listing {
   id: string;
@@ -23,6 +25,9 @@ const Marketplace = () => {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [addListingOpen, setAddListingOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+  const [orderDialogOpen, setOrderDialogOpen] = useState(false);
+  const [messagingDialogOpen, setMessagingDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -65,11 +70,14 @@ const Marketplace = () => {
     }
   };
 
-  const handleContact = (seller: string) => {
-    toast({
-      title: "Contact Seller",
-      description: `Opening chat with ${seller}...`,
-    });
+  const handleContact = (listing: Listing) => {
+    setSelectedListing(listing);
+    setMessagingDialogOpen(true);
+  };
+
+  const handleBuy = (listing: Listing) => {
+    setSelectedListing(listing);
+    setOrderDialogOpen(true);
   };
 
   return (
@@ -123,15 +131,25 @@ const Marketplace = () => {
                             <span className="text-lg font-bold text-primary">KES {listing.price_per_kg}/kg</span>
                           </div>
                         </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleContact(listing.profiles?.full_name || "Seller")}
-                          className="w-full sm:w-auto"
-                        >
-                          <MessageCircle className="w-4 h-4 mr-2" />
-                          Contact
-                        </Button>
+                        <div className="flex flex-col gap-2 w-full sm:w-auto">
+                          <Button 
+                            size="sm"
+                            onClick={() => handleBuy(listing)}
+                            className="w-full gap-2"
+                          >
+                            <ShoppingCart className="w-4 h-4" />
+                            Buy Now
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleContact(listing)}
+                            className="w-full gap-2"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            Contact
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -171,6 +189,29 @@ const Marketplace = () => {
         onOpenChange={setAddListingOpen}
         onSuccess={fetchListings}
       />
+
+      {selectedListing && (
+        <>
+          <CreateOrderDialog
+            open={orderDialogOpen}
+            onOpenChange={setOrderDialogOpen}
+            listingId={selectedListing.id}
+            sellerId={selectedListing.seller_id}
+            cropName={selectedListing.crop_name}
+            pricePerKg={selectedListing.price_per_kg}
+            availableQuantity={selectedListing.quantity}
+            onOrderCreated={fetchListings}
+          />
+
+          <MessagingDialog
+            open={messagingDialogOpen}
+            onOpenChange={setMessagingDialogOpen}
+            otherUserId={selectedListing.seller_id}
+            otherUserName={selectedListing.profiles?.full_name || "Seller"}
+            listingId={selectedListing.id}
+          />
+        </>
+      )}
     </div>
   );
 };
