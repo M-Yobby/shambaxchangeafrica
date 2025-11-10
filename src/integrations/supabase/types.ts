@@ -492,6 +492,7 @@ export type Database = {
           id: string
           location: string
           phone: string | null
+          referral_code: string | null
           updated_at: string
         }
         Insert: {
@@ -501,6 +502,7 @@ export type Database = {
           id: string
           location: string
           phone?: string | null
+          referral_code?: string | null
           updated_at?: string
         }
         Update: {
@@ -510,6 +512,7 @@ export type Database = {
           id?: string
           location?: string
           phone?: string | null
+          referral_code?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -635,8 +638,15 @@ export type Database = {
       }
     }
     Functions: {
+      assign_referral_code: { Args: { p_user_id: string }; Returns: string }
       award_points: {
         Args: { p_action: string; p_points: number; p_user_id: string }
+        Returns: undefined
+      }
+      complete_referral: { Args: { p_referred_id: string }; Returns: undefined }
+      generate_referral_code: { Args: never; Returns: string }
+      process_referral: {
+        Args: { p_new_user_id: string; p_referral_code: string }
         Returns: undefined
       }
       refresh_leaderboards: { Args: never; Returns: undefined }

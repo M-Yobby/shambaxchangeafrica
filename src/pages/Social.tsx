@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import CommentSection from "@/components/CommentSection";
+import { useCompleteReferral } from "@/hooks/useCompleteReferral";
 
 interface Post {
   id: string;
@@ -34,6 +35,7 @@ const Social = () => {
   const [showComments, setShowComments] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { completeReferral } = useCompleteReferral();
 
   useEffect(() => {
     fetchPosts();
@@ -176,6 +178,16 @@ const Social = () => {
       });
 
       if (error) throw error;
+
+      // Award points for posting
+      await supabase.rpc("award_points", {
+        p_user_id: user.id,
+        p_points: 15,
+        p_action: "creating a post",
+      });
+
+      // Complete referral if this is first activity
+      await completeReferral();
 
       toast({
         title: "Post created!",

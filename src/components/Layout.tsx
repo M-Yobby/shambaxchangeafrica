@@ -3,10 +3,11 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
-import { Home, TrendingUp, Store, Users, LogOut, Sprout, Trophy, ShoppingBag } from "lucide-react";
+import { Home, TrendingUp, Store, Users, LogOut, Sprout, Trophy, ShoppingBag, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { NotificationCenter } from "./NotificationCenter";
 import { UserStatsDisplay } from "./UserStatsDisplay";
+import { ReferralButton } from "./ReferralButton";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -99,7 +100,7 @@ const Layout = ({ children }: LayoutProps) => {
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
-            {navItems.map((item) => (
+            {navItems.slice(0, 5).map((item) => (
               <Link key={item.path} to={item.path}>
                 <Button
                   variant={isActive(item.path) ? "default" : "ghost"}
@@ -115,6 +116,7 @@ const Layout = ({ children }: LayoutProps) => {
 
           <div className="flex items-center gap-3">
             <UserStatsDisplay />
+            <ReferralButton />
             <NotificationCenter />
             <Button variant="ghost" size="sm" onClick={handleSignOut} className="gap-2">
               <LogOut className="w-4 h-4" />

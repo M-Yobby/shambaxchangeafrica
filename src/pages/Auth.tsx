@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,12 +7,23 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Sprout } from "lucide-react";
+import { Sprout, Gift } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Auth = () => {
   const [loading, setLoading] = useState(false);
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [referralCode, setReferralCode] = useState("");
+
+  useEffect(() => {
+    // Check if there's a referral code in the URL
+    const refCode = searchParams.get("ref");
+    if (refCode) {
+      setReferralCode(refCode);
+    }
+  }, [searchParams]);
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -23,8 +34,9 @@ const Auth = () => {
     const password = formData.get("password") as string;
     const fullName = formData.get("fullName") as string;
     const location = formData.get("location") as string;
+    const referralCodeInput = formData.get("referralCode") as string;
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -36,21 +48,37 @@ const Auth = () => {
       },
     });
 
-    setLoading(false);
-
     if (error) {
+      setLoading(false);
       toast({
         title: "Error",
         description: error.message,
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: "Success",
-        description: "Account created! Please check your email to verify.",
-      });
-      navigate("/");
+      return;
     }
+
+    // Process referral if code was provided
+    if (data.user && referralCodeInput) {
+      try {
+        await supabase.rpc("process_referral", {
+          p_new_user_id: data.user.id,
+          p_referral_code: referralCodeInput.toUpperCase(),
+        });
+      } catch (refError) {
+        console.error("Error processing referral:", refError);
+        // Don't fail signup if referral processing fails
+      }
+    }
+
+    setLoading(false);
+    toast({
+      title: "Success",
+      description: referralCodeInput 
+        ? "Account created with referral bonus! Please check your email to verify."
+        : "Account created! Please check your email to verify.",
+    });
+    navigate("/");
   };
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -138,64 +166,86 @@ const Auth = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="signup">
-            <Card>
-              <CardHeader>
-                <CardTitle>Create Account</CardTitle>
-                <CardDescription>Join shambaXchange to grow smarter</CardDescription>
-              </CardHeader>
+            <TabsContent value="signup">
               <form onSubmit={handleSignUp}>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name">Full Name</Label>
-                    <Input
-                      id="signup-name"
-                      name="fullName"
-                      type="text"
-                      placeholder="John Mwangi"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-location">Location</Label>
-                    <Input
-                      id="signup-location"
-                      name="location"
-                      type="text"
-                      placeholder="e.g., Kisii, Kenya"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input
-                      id="signup-email"
-                      name="email"
-                      type="email"
-                      placeholder="your@email.com"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
-                    <Input
-                      id="signup-password"
-                      name="password"
-                      type="password"
-                      placeholder="••••••••"
-                      required
-                      minLength={6}
-                    />
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? "Creating account..." : "Create Account"}
-                  </Button>
-                </CardFooter>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Create Account</CardTitle>
+                    <CardDescription>Join the farming community</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {referralCode && (
+                      <Alert className="bg-primary/10 border-primary">
+                        <Gift className="h-4 w-4" />
+                        <AlertDescription>
+                          You're signing up with a referral code! You'll earn 50 bonus points.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-fullName">Full Name</Label>
+                      <Input
+                        id="signup-fullName"
+                        name="fullName"
+                        placeholder="John Doe"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-location">Location</Label>
+                      <Input
+                        id="signup-location"
+                        name="location"
+                        placeholder="Nairobi, Kenya"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-email">Email</Label>
+                      <Input
+                        id="signup-email"
+                        name="email"
+                        type="email"
+                        placeholder="farmer@example.com"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-password">Password</Label>
+                      <Input
+                        id="signup-password"
+                        name="password"
+                        type="password"
+                        placeholder="••••••••"
+                        required
+                        minLength={6}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-referralCode">
+                        Referral Code (Optional)
+                      </Label>
+                      <Input
+                        id="signup-referralCode"
+                        name="referralCode"
+                        placeholder="Enter referral code"
+                        defaultValue={referralCode}
+                        className="uppercase"
+                        maxLength={8}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Have a referral code? Enter it to earn bonus points!
+                      </p>
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? "Creating account..." : "Sign Up"}
+                    </Button>
+                  </CardFooter>
+                </Card>
               </form>
-            </Card>
-          </TabsContent>
+            </TabsContent>
         </Tabs>
       </div>
     </div>

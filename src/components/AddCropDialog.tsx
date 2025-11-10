@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCompleteReferral } from "@/hooks/useCompleteReferral";
 import { Loader2 } from "lucide-react";
 
 interface AddCropDialogProps {
@@ -20,6 +21,7 @@ const AddCropDialog = ({ open, onOpenChange, onSuccess }: AddCropDialogProps) =>
   const [expectedYield, setExpectedYield] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { completeReferral } = useCompleteReferral();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +41,16 @@ const AddCropDialog = ({ open, onOpenChange, onSuccess }: AddCropDialogProps) =>
       });
 
       if (error) throw error;
+
+      // Award points for adding crop
+      await supabase.rpc("award_points", {
+        p_user_id: user.id,
+        p_points: 10,
+        p_action: "adding a crop",
+      });
+
+      // Complete referral if this is first activity
+      await completeReferral();
 
       toast({
         title: "Success",
