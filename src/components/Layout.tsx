@@ -3,7 +3,7 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
-import { Home, TrendingUp, Store, Users, LogOut, Sprout } from "lucide-react";
+import { Home, TrendingUp, Store, Users, LogOut, Sprout, Trophy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { NotificationCenter } from "./NotificationCenter";
 import { UserStatsDisplay } from "./UserStatsDisplay";
@@ -64,6 +64,7 @@ const Layout = ({ children }: LayoutProps) => {
     { path: "/market-intel", label: "Market Intel", icon: TrendingUp },
     { path: "/marketplace", label: "Marketplace", icon: Store },
     { path: "/social", label: "Social", icon: Users },
+    { path: "/leaderboards", label: "Leaderboards", icon: Trophy },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -127,7 +128,7 @@ const Layout = ({ children }: LayoutProps) => {
       </main>
 
       <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-card shadow-lg">
-        <div className="grid grid-cols-4 gap-1 p-2">
+        <div className="grid grid-cols-5 gap-1 p-2">
           {navItems.map((item) => (
             <Link key={item.path} to={item.path}>
               <Button
@@ -135,8 +136,8 @@ const Layout = ({ children }: LayoutProps) => {
                 size="sm"
                 className="w-full flex-col h-auto py-2 gap-1"
               >
-                <item.icon className="w-5 h-5" />
-                <span className="text-xs">{item.label}</span>
+                <item.icon className="w-4 h-4" />
+                <span className="text-[10px]">{item.label}</span>
               </Button>
             </Link>
           ))}

@@ -195,6 +195,21 @@ export type Database = {
         }
         Relationships: []
       }
+      leaderboard_refresh_log: {
+        Row: {
+          id: string
+          refreshed_at: string | null
+        }
+        Insert: {
+          id?: string
+          refreshed_at?: string | null
+        }
+        Update: {
+          id?: string
+          refreshed_at?: string | null
+        }
+        Relationships: []
+      }
       ledger: {
         Row: {
           amount: number
@@ -599,13 +614,32 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      leaderboards: {
+        Row: {
+          avg_rating: number | null
+          completed_orders: number | null
+          full_name: string | null
+          level: number | null
+          location: string | null
+          points: number | null
+          streak_days: number | null
+          total_comments: number | null
+          total_likes_given: number | null
+          total_likes_received: number | null
+          total_posts: number | null
+          total_reviews: number | null
+          total_sales: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       award_points: {
         Args: { p_action: string; p_points: number; p_user_id: string }
         Returns: undefined
       }
+      refresh_leaderboards: { Args: never; Returns: undefined }
       update_streak: { Args: { p_user_id: string }; Returns: undefined }
     }
     Enums: {

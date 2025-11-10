@@ -10,6 +10,7 @@ import MarketIntel from "./pages/MarketIntel";
 import Marketplace from "./pages/Marketplace";
 import Social from "./pages/Social";
 import Learning from "./pages/Learning";
+import Leaderboards from "./pages/Leaderboards";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/marketplace" element={<Layout><Marketplace /></Layout>} />
           <Route path="/social" element={<Layout><Social /></Layout>} />
           <Route path="/learning" element={<Layout><Learning /></Layout>} />
+          <Route path="/leaderboards" element={<Layout><Leaderboards /></Layout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
