@@ -19,12 +19,17 @@ serve(async (req) => {
       throw new Error('OPENWEATHER_API_KEY not configured');
     }
 
-    const response = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&units=metric&appid=${OPENWEATHER_API_KEY}`
-    );
+    const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&units=metric&appid=${OPENWEATHER_API_KEY}`;
+    console.log('Fetching weather from:', url.replace(OPENWEATHER_API_KEY, '[API_KEY]'));
+    
+    const response = await fetch(url);
 
+    console.log('Weather API response status:', response.status);
+    
     if (!response.ok) {
-      throw new Error('Failed to fetch weather data');
+      const errorText = await response.text();
+      console.error('Weather API error:', errorText);
+      throw new Error(`Failed to fetch weather data: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
