@@ -13,33 +13,40 @@ interface LayoutProps {
 const Layout = ({ children }: LayoutProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
 
   useEffect(() => {
+    // Check initial session first
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        setLoading(false);
       }
     );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-    });
 
     return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
+    if (loading) return;
+
     if (!user && location.pathname !== "/auth") {
-      navigate("/auth");
+      navigate("/auth", { replace: true });
     } else if (user && location.pathname === "/auth") {
-      navigate("/");
+      navigate("/", { replace: true });
     }
-  }, [user, location.pathname, navigate]);
+  }, [user, location.pathname, navigate, loading]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -58,6 +65,19 @@ const Layout = ({ children }: LayoutProps) => {
   ];
 
   const isActive = (path: string) => location.pathname === path;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary mb-4 animate-pulse">
+            <Sprout className="w-8 h-8 text-primary-foreground" />
+          </div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return null;
