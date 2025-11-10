@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Plus, Calculator, BookOpen, TrendingUp, Cloud, Droplets, Wind, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import AIChatbot from "@/components/AIChatbot";
 import AddCropDialog from "@/components/AddCropDialog";
 import AddLedgerDialog from "@/components/AddLedgerDialog";
@@ -35,6 +36,7 @@ const Dashboard = () => {
   const [addCropOpen, setAddCropOpen] = useState(false);
   const [addLedgerOpen, setAddLedgerOpen] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchProfile();
@@ -121,8 +123,8 @@ const Dashboard = () => {
   const quickActions = [
     { icon: Plus, label: "Add Crop", color: "bg-primary", action: () => setAddCropOpen(true) },
     { icon: Calculator, label: "Add Expense/Income", color: "bg-secondary", action: () => setAddLedgerOpen(true) },
-    { icon: BookOpen, label: "Learning Hub", color: "bg-accent", action: () => toast({ title: "Coming soon", description: "Learning hub" }) },
-    { icon: TrendingUp, label: "Market Prices", color: "bg-success", action: () => toast({ title: "Coming soon", description: "Market prices" }) },
+    { icon: BookOpen, label: "Learning Hub", color: "bg-accent", action: () => navigate("/learning") },
+    { icon: TrendingUp, label: "Market Prices", color: "bg-success", action: () => navigate("/market-intel") },
   ];
 
   return (

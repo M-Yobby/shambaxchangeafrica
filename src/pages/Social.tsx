@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Share2, Send, TrendingUp, Loader2 } from "lucide-react";
+import { Heart, MessageCircle, Share2, Send, TrendingUp, Loader2, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
+import CommentSection from "@/components/CommentSection";
 
 interface Post {
   id: string;
@@ -14,6 +15,8 @@ interface Post {
   user_id: string;
   created_at: string;
   likes_count: number;
+  shares_count: number;
+  media_url: string | null;
   profiles?: {
     full_name: string;
     location: string;
@@ -24,18 +27,47 @@ interface Post {
 const Social = () => {
   const [postContent, setPostContent] = useState("");
   const [posts, setPosts] = useState<Post[]>([]);
+  const [trendingPosts, setTrendingPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [showComments, setShowComments] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-
-  const trending = [
-    { topic: "#ClimateSmartFarming", posts: 145 },
-    { topic: "#TomatoPrices", posts: 89 },
-    { topic: "#OrganicFarming", posts: 67 },
-  ];
 
   useEffect(() => {
     fetchPosts();
+    fetchTrendingPosts();
   }, []);
+
+  const fetchTrendingPosts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("posts")
+        .select("*")
+        .order("likes_count", { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+
+      if (data) {
+        const userIds = [...new Set(data.map((p) => p.user_id))];
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("id, full_name, location")
+          .in("id", userIds);
+
+        const profilesMap = new Map(profilesData?.map((p) => [p.id, p]) || []);
+        const enriched = data.map((post) => ({
+          ...post,
+          profiles: profilesMap.get(post.user_id),
+        }));
+        setTrendingPosts(enriched);
+      }
+    } catch (error) {
+      console.error("Error fetching trending:", error);
+    }
+  };
 
   const fetchPosts = async () => {
     try {
@@ -100,16 +132,47 @@ const Social = () => {
     }
   };
 
+  const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setMediaFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setMediaPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handlePost = async () => {
-    if (!postContent.trim()) return;
+    if (!postContent.trim() && !mediaFile) return;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      let mediaUrl: string | null = null;
+
+      if (mediaFile) {
+        const fileExt = mediaFile.name.split(".").pop();
+        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from("post-media")
+          .upload(fileName, mediaFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from("post-media")
+          .getPublicUrl(fileName);
+
+        mediaUrl = publicUrl;
+      }
+
       const { error } = await supabase.from("posts").insert({
         content: postContent,
         user_id: user.id,
+        media_url: mediaUrl,
       });
 
       if (error) throw error;
@@ -119,7 +182,10 @@ const Social = () => {
         description: "Your post has been shared with the community.",
       });
       setPostContent("");
+      setMediaFile(null);
+      setMediaPreview(null);
       fetchPosts();
+      fetchTrendingPosts();
     } catch (error) {
       console.error("Error creating post:", error);
       toast({
@@ -173,12 +239,33 @@ const Social = () => {
       }
 
       fetchPosts();
+      fetchTrendingPosts();
     } catch (error) {
       console.error("Error toggling like:", error);
       toast({
         description: isLiked ? "Failed to unlike" : "Failed to like post",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleShare = async (postId: string) => {
+    try {
+      const post = posts.find((p) => p.id === postId);
+      if (!post) return;
+
+      await supabase
+        .from("posts")
+        .update({ shares_count: (post.shares_count || 0) + 1 })
+        .eq("id", postId);
+
+      toast({
+        title: "Shared!",
+        description: "Post shared to your network",
+      });
+      fetchPosts();
+    } catch (error) {
+      console.error("Error sharing:", error);
     }
   };
 
@@ -205,11 +292,45 @@ const Social = () => {
                     className="min-h-[100px] resize-none"
                     maxLength={300}
                   />
+                  {mediaPreview && (
+                    <div className="relative mt-2">
+                      <img src={mediaPreview} alt="Preview" className="max-h-48 rounded-lg" />
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => {
+                          setMediaFile(null);
+                          setMediaPreview(null);
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between mt-3">
-                    <span className="text-xs text-muted-foreground">
-                      {postContent.length}/300
-                    </span>
-                    <Button onClick={handlePost} disabled={!postContent.trim()}>
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleMediaSelect}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <ImageIcon className="w-4 h-4 mr-2" />
+                        Photo
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        {postContent.length}/300
+                      </span>
+                    </div>
+                    <Button onClick={handlePost} disabled={!postContent.trim() && !mediaFile}>
                       <Send className="w-4 h-4 mr-2" />
                       Post
                     </Button>
@@ -249,7 +370,10 @@ const Social = () => {
                             </p>
                           </div>
                         </div>
-                        <p className="text-sm mb-4 whitespace-pre-wrap">{post.content}</p>
+                        <p className="text-sm mb-2 whitespace-pre-wrap">{post.content}</p>
+                        {post.media_url && (
+                          <img src={post.media_url} alt="Post media" className="rounded-lg mb-4 max-h-96 w-full object-cover" />
+                        )}
                         <div className="flex items-center gap-6 text-muted-foreground">
                           <button 
                             className={`flex items-center gap-2 transition-colors ${
@@ -260,15 +384,21 @@ const Social = () => {
                             <Heart className={`w-4 h-4 ${post.user_liked ? "fill-current" : ""}`} />
                             <span className="text-sm">{post.likes_count || 0}</span>
                           </button>
-                          <button className="flex items-center gap-2 hover:text-accent transition-colors">
+                          <button
+                            className="flex items-center gap-2 hover:text-accent transition-colors"
+                            onClick={() => setShowComments(showComments === post.id ? null : post.id)}
+                          >
                             <MessageCircle className="w-4 h-4" />
-                            <span className="text-sm">0</span>
                           </button>
-                          <button className="flex items-center gap-2 hover:text-secondary transition-colors">
+                          <button
+                            className="flex items-center gap-2 hover:text-secondary transition-colors"
+                            onClick={() => handleShare(post.id)}
+                          >
                             <Share2 className="w-4 h-4" />
-                            <span className="text-sm">0</span>
+                            <span className="text-sm">{post.shares_count || 0}</span>
                           </button>
                         </div>
+                        {showComments === post.id && <CommentSection postId={post.id} />}
                       </div>
                     </div>
                   </CardContent>
@@ -302,16 +432,21 @@ const Social = () => {
             <CardContent className="pt-6">
               <div className="flex items-center gap-2 mb-4">
                 <TrendingUp className="w-5 h-5 text-primary" />
-                <h3 className="font-semibold">Trending Topics</h3>
+                <h3 className="font-semibold">Trending Posts</h3>
               </div>
               <div className="space-y-3">
-                {trending.map((item) => (
+                {trendingPosts.map((post) => (
                   <button 
-                    key={item.topic}
+                    key={post.id}
                     className="w-full text-left p-3 hover:bg-muted rounded-lg transition-colors"
                   >
-                    <p className="font-medium text-sm text-primary">{item.topic}</p>
-                    <p className="text-xs text-muted-foreground">{item.posts} posts</p>
+                    <p className="font-medium text-sm line-clamp-2">{post.content}</p>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Heart className="w-3 h-3" /> {post.likes_count}
+                      </span>
+                      <span>• {post.profiles?.full_name || "Farmer"}</span>
+                    </div>
                   </button>
                 ))}
               </div>
