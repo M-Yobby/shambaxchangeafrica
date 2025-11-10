@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Calculator, BookOpen, TrendingUp, Cloud, Droplets, Wind } from "lucide-react";
+import { Plus, Calculator, BookOpen, TrendingUp, Cloud, Droplets, Wind, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import AIChatbot from "@/components/AIChatbot";
 
 interface Profile {
   full_name: string;
@@ -12,7 +13,8 @@ interface Profile {
 
 const Dashboard = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [weather, setWeather] = useState({ temp: 24, humidity: 65, condition: "Partly Cloudy" });
+  const [weather, setWeather] = useState<any>(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -28,7 +30,31 @@ const Dashboard = () => {
         .eq("id", user.id)
         .single();
       
-      if (data) setProfile(data);
+      if (data) {
+        setProfile(data);
+        fetchWeather(data.location);
+      }
+    }
+  };
+
+  const fetchWeather = async (location: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-weather", {
+        body: { location },
+      });
+
+      if (error) throw error;
+      setWeather(data);
+    } catch (error) {
+      console.error("Weather fetch error:", error);
+      toast({
+        title: "Weather Unavailable",
+        description: "Using default weather data",
+        variant: "destructive",
+      });
+      setWeather({ temp: 24, humidity: 65, condition: "Partly Cloudy", windSpeed: 12 });
+    } finally {
+      setWeatherLoading(false);
     }
   };
 
@@ -52,21 +78,27 @@ const Dashboard = () => {
           
           <Card className="w-full sm:w-auto">
             <CardContent className="p-4 flex items-center gap-4">
-              <Cloud className="w-8 h-8 text-accent" />
-              <div>
-                <p className="font-semibold text-lg">{weather.temp}°C</p>
-                <p className="text-sm text-muted-foreground">{weather.condition}</p>
-              </div>
-              <div className="flex gap-2 text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Droplets className="w-4 h-4" />
-                  <span className="text-sm">{weather.humidity}%</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Wind className="w-4 h-4" />
-                  <span className="text-sm">12km/h</span>
-                </div>
-              </div>
+              {weatherLoading ? (
+                <Loader2 className="w-8 h-8 text-accent animate-spin" />
+              ) : (
+                <>
+                  <Cloud className="w-8 h-8 text-accent" />
+                  <div>
+                    <p className="font-semibold text-lg">{weather?.temp || 24}°C</p>
+                    <p className="text-sm text-muted-foreground">{weather?.condition || "Partly Cloudy"}</p>
+                  </div>
+                  <div className="flex gap-2 text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Droplets className="w-4 h-4" />
+                      <span className="text-sm">{weather?.humidity || 65}%</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Wind className="w-4 h-4" />
+                      <span className="text-sm">{Math.round(weather?.windSpeed || 12)}km/h</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -175,6 +207,8 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      <AIChatbot />
     </div>
   );
 };

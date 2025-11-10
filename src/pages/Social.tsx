@@ -1,47 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Share2, Send, TrendingUp } from "lucide-react";
+import { Heart, MessageCircle, Share2, Send, TrendingUp, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { formatDistanceToNow } from "date-fns";
+
+interface Post {
+  id: string;
+  content: string;
+  user_id: string;
+  created_at: string;
+  likes_count: number;
+  profiles?: {
+    full_name: string;
+    location: string;
+  };
+  user_liked?: boolean;
+}
 
 const Social = () => {
   const [postContent, setPostContent] = useState("");
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-
-  const posts = [
-    {
-      id: 1,
-      author: "John Mwangi",
-      location: "Kisii",
-      content: "Just harvested my tomatoes! The AI recommendations from shambaXchange helped me time it perfectly. Prices are great right now! 🍅",
-      likes: 24,
-      comments: 8,
-      shares: 3,
-      time: "2h ago",
-    },
-    {
-      id: 2,
-      author: "Mary Wanjiku",
-      location: "Nakuru",
-      content: "Anyone dealing with aphids on cabbages? Looking for organic solutions that work.",
-      likes: 15,
-      comments: 12,
-      shares: 1,
-      time: "4h ago",
-    },
-    {
-      id: 3,
-      author: "Peter Omondi",
-      location: "Eldoret",
-      content: "Market Intel was right - maize prices are stabilizing. Holding my stock paid off!",
-      likes: 31,
-      comments: 6,
-      shares: 5,
-      time: "1d ago",
-    },
-  ];
 
   const trending = [
     { topic: "#ClimateSmartFarming", posts: 145 },
@@ -49,20 +33,153 @@ const Social = () => {
     { topic: "#OrganicFarming", posts: 67 },
   ];
 
-  const handlePost = () => {
-    if (postContent.trim()) {
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  const fetchPosts = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { data: postsData, error } = await supabase
+        .from("posts")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+
+      if (!postsData) {
+        setPosts([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch profiles separately
+      const userIds = [...new Set(postsData.map(p => p.user_id))];
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("id, full_name, location")
+        .in("id", userIds);
+
+      const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
+
+      // Check which posts current user has liked
+      if (user && postsData) {
+        const { data: likesData } = await supabase
+          .from("likes")
+          .select("post_id")
+          .eq("user_id", user.id)
+          .in("post_id", postsData.map(p => p.id));
+
+        const likedPostIds = new Set(likesData?.map(l => l.post_id) || []);
+        
+        const enrichedPosts = postsData.map(post => ({
+          ...post,
+          profiles: profilesMap.get(post.user_id),
+          user_liked: likedPostIds.has(post.id),
+        }));
+        
+        setPosts(enrichedPosts);
+      } else {
+        const enrichedPosts = postsData.map(post => ({
+          ...post,
+          profiles: profilesMap.get(post.user_id),
+        }));
+        setPosts(enrichedPosts);
+      }
+    } catch (error) {
+      console.error("Error fetching posts:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load posts",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePost = async () => {
+    if (!postContent.trim()) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase.from("posts").insert({
+        content: postContent,
+        user_id: user.id,
+      });
+
+      if (error) throw error;
+
       toast({
         title: "Post created!",
         description: "Your post has been shared with the community.",
       });
       setPostContent("");
+      fetchPosts();
+    } catch (error) {
+      console.error("Error creating post:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create post",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleLike = (postId: number) => {
-    toast({
-      description: "Post liked!",
-    });
+  const handleLike = async (postId: string, isLiked: boolean) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      if (isLiked) {
+        // Unlike
+        const { error: deleteError } = await supabase
+          .from("likes")
+          .delete()
+          .eq("post_id", postId)
+          .eq("user_id", user.id);
+
+        if (!deleteError) {
+          // Update likes count
+          const post = posts.find(p => p.id === postId);
+          if (post) {
+            await supabase
+              .from("posts")
+              .update({ likes_count: Math.max(0, (post.likes_count || 0) - 1) })
+              .eq("id", postId);
+          }
+        }
+      } else {
+        // Like
+        const { error: insertError } = await supabase.from("likes").insert({
+          post_id: postId,
+          user_id: user.id,
+        });
+
+        if (!insertError) {
+          // Update likes count
+          const post = posts.find(p => p.id === postId);
+          if (post) {
+            await supabase
+              .from("posts")
+              .update({ likes_count: (post.likes_count || 0) + 1 })
+              .eq("id", postId);
+          }
+        }
+      }
+
+      fetchPosts();
+    } catch (error) {
+      console.error("Error toggling like:", error);
+      toast({
+        description: isLiked ? "Failed to unlike" : "Failed to like post",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -102,47 +219,63 @@ const Social = () => {
             </CardContent>
           </Card>
 
-          <div className="space-y-4">
-            {posts.map((post) => (
-              <Card key={post.id}>
-                <CardContent className="pt-6">
-                  <div className="flex gap-3">
-                    <Avatar>
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {post.author[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-semibold">{post.author}</p>
-                          <p className="text-sm text-muted-foreground">{post.location} • {post.time}</p>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : posts.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <p>No posts yet. Be the first to share!</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {posts.map((post) => (
+                <Card key={post.id}>
+                  <CardContent className="pt-6">
+                    <div className="flex gap-3">
+                      <Avatar>
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                          {post.profiles?.full_name?.[0] || "F"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <p className="font-semibold">{post.profiles?.full_name || "Farmer"}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {post.profiles?.location || "Kenya"} • {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-sm mb-4 whitespace-pre-wrap">{post.content}</p>
+                        <div className="flex items-center gap-6 text-muted-foreground">
+                          <button 
+                            className={`flex items-center gap-2 transition-colors ${
+                              post.user_liked ? "text-destructive" : "hover:text-destructive"
+                            }`}
+                            onClick={() => handleLike(post.id, post.user_liked || false)}
+                          >
+                            <Heart className={`w-4 h-4 ${post.user_liked ? "fill-current" : ""}`} />
+                            <span className="text-sm">{post.likes_count || 0}</span>
+                          </button>
+                          <button className="flex items-center gap-2 hover:text-accent transition-colors">
+                            <MessageCircle className="w-4 h-4" />
+                            <span className="text-sm">0</span>
+                          </button>
+                          <button className="flex items-center gap-2 hover:text-secondary transition-colors">
+                            <Share2 className="w-4 h-4" />
+                            <span className="text-sm">0</span>
+                          </button>
                         </div>
                       </div>
-                      <p className="text-sm mb-4">{post.content}</p>
-                      <div className="flex items-center gap-6 text-muted-foreground">
-                        <button 
-                          className="flex items-center gap-2 hover:text-destructive transition-colors"
-                          onClick={() => handleLike(post.id)}
-                        >
-                          <Heart className="w-4 h-4" />
-                          <span className="text-sm">{post.likes}</span>
-                        </button>
-                        <button className="flex items-center gap-2 hover:text-accent transition-colors">
-                          <MessageCircle className="w-4 h-4" />
-                          <span className="text-sm">{post.comments}</span>
-                        </button>
-                        <button className="flex items-center gap-2 hover:text-secondary transition-colors">
-                          <Share2 className="w-4 h-4" />
-                          <span className="text-sm">{post.shares}</span>
-                        </button>
-                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="space-y-6">
