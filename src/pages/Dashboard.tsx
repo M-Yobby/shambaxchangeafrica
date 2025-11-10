@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Calculator, BookOpen, TrendingUp, Cloud, Droplets, Wind, Loader2 } from "lucide-react";
+import { Plus, Calculator, BookOpen, TrendingUp, Cloud, Droplets, Wind, Loader2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import AIChatbot from "@/components/AIChatbot";
@@ -35,6 +35,7 @@ const Dashboard = () => {
   const [ledgerSummary, setLedgerSummary] = useState<LedgerSummary>({ totalIncome: 0, totalExpenses: 0 });
   const [addCropOpen, setAddCropOpen] = useState(false);
   const [addLedgerOpen, setAddLedgerOpen] = useState(false);
+  const [aiInsights, setAiInsights] = useState<string[]>([]);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -42,6 +43,7 @@ const Dashboard = () => {
     fetchProfile();
     fetchCrops();
     fetchLedgerSummary();
+    fetchAIInsights();
   }, []);
 
   const fetchProfile = async () => {
@@ -96,27 +98,62 @@ const Dashboard = () => {
   };
 
   const fetchLedgerSummary = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase
-        .from("ledger")
-        .select("type, amount")
-        .eq("user_id", user.id);
-      
-      if (data) {
-        const summary = data.reduce(
-          (acc, entry) => {
-            if (entry.type === "income") {
-              acc.totalIncome += Number(entry.amount);
-            } else {
-              acc.totalExpenses += Number(entry.amount);
-            }
-            return acc;
-          },
-          { totalIncome: 0, totalExpenses: 0 }
-        );
-        setLedgerSummary(summary);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('ledger')
+        .select('type, amount')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      const summary = data?.reduce(
+        (acc, item) => {
+          if (item.type === 'income') {
+            acc.totalIncome += Number(item.amount);
+          } else {
+            acc.totalExpenses += Number(item.amount);
+          }
+          return acc;
+        },
+        { totalIncome: 0, totalExpenses: 0 }
+      );
+
+      setLedgerSummary(summary || { totalIncome: 0, totalExpenses: 0 });
+    } catch (error) {
+      console.error('Error fetching ledger:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch financial data",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchAIInsights = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-insights');
+
+      if (error) {
+        console.error('Error fetching AI insights:', error);
+        setAiInsights([
+          'Welcome to shambaXchange! Start by adding your crops.',
+          'Track your income and expenses to understand farm profitability.',
+          'Check the Learning Hub for farming tips and best practices.'
+        ]);
+        return;
       }
+
+      setAiInsights(data.insights || []);
+    } catch (error) {
+      console.error('Error in fetchAIInsights:', error);
+      setAiInsights([
+        'Welcome to shambaXchange! Start by adding your crops.',
+        'Track your income and expenses to understand farm profitability.',
+        'Check the Learning Hub for farming tips and best practices.'
+      ]);
     }
   };
 

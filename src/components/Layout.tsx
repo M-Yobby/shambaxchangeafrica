@@ -5,6 +5,8 @@ import { User, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Home, TrendingUp, Store, Users, LogOut, Sprout } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { NotificationCenter } from "./NotificationCenter";
+import { UserStatsDisplay } from "./UserStatsDisplay";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -109,10 +111,14 @@ const Layout = ({ children }: LayoutProps) => {
             ))}
           </nav>
 
-          <Button variant="ghost" size="sm" onClick={handleSignOut} className="gap-2">
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Sign Out</span>
-          </Button>
+          <div className="flex items-center gap-3">
+            <UserStatsDisplay />
+            <NotificationCenter />
+            <Button variant="ghost" size="sm" onClick={handleSignOut} className="gap-2">
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </Button>
+          </div>
         </div>
       </header>
 
