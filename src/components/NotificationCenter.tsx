@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useNotifications } from "@/hooks/useNotifications";
 
 interface Notification {
   id: string;
@@ -23,6 +24,7 @@ interface Notification {
 export const NotificationCenter = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const { showNotification, permission } = useNotifications();
 
   useEffect(() => {
     fetchNotifications();
@@ -37,7 +39,19 @@ export const NotificationCenter = () => {
           schema: 'public',
           table: 'notifications'
         },
-        () => fetchNotifications()
+        async (payload) => {
+          await fetchNotifications();
+          
+          // Show browser notification if permission is granted
+          if (permission === 'granted') {
+            const newNotif = payload.new as Notification;
+            showNotification(newNotif.title, {
+              body: newNotif.message,
+              tag: newNotif.type,
+              data: { url: getNotificationUrl(newNotif.type) },
+            });
+          }
+        }
       )
       .subscribe();
 
@@ -101,6 +115,19 @@ export const NotificationCenter = () => {
       setUnreadCount(0);
     } catch (error) {
       console.error('Error marking all as read:', error);
+    }
+  };
+
+  const getNotificationUrl = (type: string) => {
+    switch (type) {
+      case 'message':
+        return '/orders';
+      case 'order':
+        return '/orders';
+      case 'system':
+        return '/dashboard';
+      default:
+        return '/';
     }
   };
 

@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { NotificationCenter } from "./NotificationCenter";
 import { UserStatsDisplay } from "./UserStatsDisplay";
 import { ReferralButton } from "./ReferralButton";
+import { NotificationPermissionPrompt } from "./NotificationPermissionPrompt";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -129,6 +130,8 @@ const Layout = ({ children }: LayoutProps) => {
       <main className="container mx-auto px-4 py-6">
         {children}
       </main>
+
+      <NotificationPermissionPrompt />
 
       <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-card shadow-lg z-50">
         <div className="grid grid-cols-6 gap-1 p-2">

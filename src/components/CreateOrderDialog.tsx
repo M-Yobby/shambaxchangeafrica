@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ShoppingCart } from "lucide-react";
+import { createNotification, NotificationTemplates } from "@/utils/notificationHelpers";
 
 interface CreateOrderDialogProps {
   open: boolean;
@@ -92,12 +93,21 @@ export const CreateOrderDialog = ({
         p_action: "creating an order",
       });
 
-      // Notify seller
-      await supabase.from("notifications").insert({
-        user_id: sellerId,
-        type: "order",
-        title: "New Order Request",
-        message: `You have a new order request for ${quantity}kg of ${cropName}`,
+      // Create notification for seller
+      const { data: buyerProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+
+      const notification = NotificationTemplates.newOrder(
+        buyerProfile?.full_name || 'Someone',
+        cropName
+      );
+      
+      await createNotification({
+        userId: sellerId,
+        ...notification,
         data: { listing_id: listingId },
       });
 

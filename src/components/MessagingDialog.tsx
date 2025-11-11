@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Send, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { createNotification, NotificationTemplates } from "@/utils/notificationHelpers";
 
 interface Message {
   id: string;
@@ -153,11 +154,11 @@ export const MessagingDialog = ({
       setNewMessage("");
       
       // Create notification for recipient
-      await supabase.from("notifications").insert({
-        user_id: otherUserId,
-        type: "order",
-        title: "New Message",
-        message: `You have a new message from a ${listingId ? 'buyer' : 'seller'}`,
+      const notification = NotificationTemplates.newMessage(otherUserName);
+      
+      await createNotification({
+        userId: otherUserId,
+        ...notification,
         data: { conversation_id: conversationId, listing_id: listingId },
       });
 
