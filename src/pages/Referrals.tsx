@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Copy, Users, Gift, Share2, CheckCircle, Clock, TrendingUp, Award } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ReferralNetwork } from "@/components/ReferralNetwork";
 
 interface Referral {
   id: string;
@@ -254,47 +255,51 @@ const Referrals = () => {
       </Card>
 
       {/* Rewards Tiers */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Reward Tiers</CardTitle>
-          <CardDescription>Unlock rewards as you refer more farmers</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[
-              { tier: "Bronze", referrals: 3, reward: "100 bonus points + Recruiter badge" },
-              { tier: "Silver", referrals: 5, reward: "250 bonus points + priority support" },
-              { tier: "Gold", referrals: 10, reward: "500 bonus points + Community Builder badge + premium features" },
-            ].map((level) => (
-              <div
-                key={level.tier}
-                className={`p-4 rounded-lg border ${
-                  stats.completed >= level.referrals
-                    ? "bg-primary/5 border-primary"
-                    : "bg-muted/30 border-muted"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold flex items-center gap-2">
-                      {level.tier} Tier
-                      {stats.completed >= level.referrals && (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                      )}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {level.referrals} referrals
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">{level.reward}</p>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ReferralNetwork stats={stats} />
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Reward Tiers</CardTitle>
+            <CardDescription>Unlock rewards as you refer more farmers</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {[
+                { tier: "Bronze", referrals: 3, reward: "100 bonus points + Recruiter badge" },
+                { tier: "Silver", referrals: 5, reward: "250 bonus points + priority support" },
+                { tier: "Gold", referrals: 10, reward: "500 bonus points + Community Builder badge + premium features" },
+              ].map((level) => (
+                <div
+                  key={level.tier}
+                  className={`p-4 rounded-lg border ${
+                    stats.completed >= level.referrals
+                      ? "bg-primary/5 border-primary"
+                      : "bg-muted/30 border-muted"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold flex items-center gap-2">
+                        {level.tier} Tier
+                        {stats.completed >= level.referrals && (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        )}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {level.referrals} referrals
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium">{level.reward}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Referrals List */}
       <Tabs defaultValue="all" className="space-y-4">
