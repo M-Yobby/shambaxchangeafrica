@@ -200,30 +200,25 @@ export const validateAndSanitizePost = (content: string) => {
 /**
  * Validates and sanitizes comment content before saving to database.
  * 
+ * This function performs two-step validation:
+ * 1. Schema validation using Zod (length limits, URL safety)
+ * 2. HTML sanitization using DOMPurify (XSS prevention)
+ * 
  * @param {string} content - Raw comment content from user input
  * @returns {Object} Validation result with success status, sanitized content, or error message
+ * @returns {boolean} returns.success - Whether validation passed
+ * @returns {string|null} returns.error - Error message if validation failed
+ * @returns {string|null} returns.sanitized - Sanitized content if validation passed
  * 
  * @example
  * ```tsx
- * const result = validateAndSanitizeComment(rawComment);
+ * const result = validateAndSanitizeComment(userInput);
  * if (result.success) {
  *   await supabase.from('comments').insert({ content: result.sanitized });
  * } else {
  *   toast({ title: "Error", description: result.error });
  * }
  * ```
- */
-export const validateAndSanitizeComment = (content: string) => {
- * const result = validateAndSanitizeComment(userInput);
- * if (result.success) {
- *   // Store result.sanitized in database
- * } else {
- *   // Show result.error to user
- * }
- * ```
- * 
- * @param content - Raw comment content from user
- * @returns Validation result with sanitized content or error message
  */
 export const validateAndSanitizeComment = (content: string) => {
   // Step 1: Validate using Zod schema
