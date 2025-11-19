@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import AIChatbot from "@/components/AIChatbot";
 import AddCropDialog from "@/components/AddCropDialog";
 import AddLedgerDialog from "@/components/AddLedgerDialog";
+import YieldCalculator from "@/components/YieldCalculator";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 interface Profile {
@@ -248,42 +249,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>My Crops</CardTitle>
-            <CardDescription>Active crops on your farm</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {crops.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Plus className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p className="mb-4">No crops added yet</p>
-                <Button onClick={() => setAddCropOpen(true)}>Add Your First Crop</Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {crops.map((crop) => (
-                  <div key={crop.id} className="p-3 border rounded-lg">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium">{crop.crop_name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {crop.acreage} acres • Planted {new Date(crop.planting_date).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">
-                        {crop.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                <Button variant="outline" className="w-full" onClick={() => setAddCropOpen(true)}>
-                  <Plus className="w-4 h-4 mr-2" /> Add Another Crop
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <YieldCalculator />
 
         <Card>
           <CardHeader>
