@@ -9,6 +9,29 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Sprout, Gift } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { z } from "zod";
+
+const signUpSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
+  fullName: z.string()
+    .min(2, "Full name must be at least 2 characters")
+    .max(100, "Full name must not exceed 100 characters")
+    .regex(/^[a-zA-Z\s'-]+$/, "Full name can only contain letters, spaces, hyphens, and apostrophes"),
+  location: z.string()
+    .min(2, "Location must be at least 2 characters")
+    .max(100, "Location must not exceed 100 characters"),
+  referralCode: z.string().optional(),
+});
+
+const signInSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
 
 const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -30,11 +53,28 @@ const Auth = () => {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-    const fullName = formData.get("fullName") as string;
-    const location = formData.get("location") as string;
-    const referralCodeInput = formData.get("referralCode") as string;
+    const inputData = {
+      email: formData.get("email") as string,
+      password: formData.get("password") as string,
+      fullName: formData.get("fullName") as string,
+      location: formData.get("location") as string,
+      referralCode: formData.get("referralCode") as string,
+    };
+
+    // Validate input
+    const validation = signUpSchema.safeParse(inputData);
+    if (!validation.success) {
+      setLoading(false);
+      const firstError = validation.error.errors[0];
+      toast({
+        title: "Validation Error",
+        description: firstError.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { email, password, fullName, location, referralCode: referralCodeInput } = validation.data;
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -86,8 +126,25 @@ const Auth = () => {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
+    const inputData = {
+      email: formData.get("email") as string,
+      password: formData.get("password") as string,
+    };
+
+    // Validate input
+    const validation = signInSchema.safeParse(inputData);
+    if (!validation.success) {
+      setLoading(false);
+      const firstError = validation.error.errors[0];
+      toast({
+        title: "Validation Error",
+        description: firstError.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { email, password } = validation.data;
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
