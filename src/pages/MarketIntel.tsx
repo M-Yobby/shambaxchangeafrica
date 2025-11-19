@@ -7,13 +7,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { format, subMonths } from "date-fns";
+import { usePopularCrops } from "@/hooks/usePopularCrops";
 
 const MarketIntel = () => {
+  const { crops: cropOptions } = usePopularCrops();
   const [selectedCrop, setSelectedCrop] = useState("Tomatoes");
   const [priceHistory, setPriceHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-
-  const cropOptions = ["Tomatoes", "Cabbages", "Maize", "Beans", "Potatoes", "Onions", "Carrots"];
 
   useEffect(() => {
     const fetchPriceHistory = async () => {
