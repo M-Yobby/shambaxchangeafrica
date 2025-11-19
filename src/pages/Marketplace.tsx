@@ -1,3 +1,32 @@
+/**
+ * MARKETPLACE PAGE
+ * 
+ * The Marketplace is the central hub for buying and selling produce between farmers.
+ * It integrates listing management, order creation, direct messaging, and transaction tracking.
+ * 
+ * KEY FEATURES:
+ * 1. Browse Active Listings - View all produce available for purchase
+ * 2. Create Listings - Sellers can list their produce with details
+ * 3. Order Creation - Buyers can request to purchase from sellers
+ * 4. Direct Messaging - Real-time chat between buyers and sellers
+ * 5. Order Tracking - Monitor transaction progress through status flow
+ * 
+ * TRANSACTION FLOW:
+ * 1. Seller creates listing → appears in marketplace
+ * 2. Buyer browses listings → clicks "Buy Now"
+ * 3. Order created with status "requested"
+ * 4. Seller confirms → status "confirmed"
+ * 5. Seller ships → status "in-transit"
+ * 6. Buyer receives → status "delivered"
+ * 7. Buyer reviews → status "completed"
+ * 
+ * COMPONENTS USED:
+ * - AddListingDialog: Form for creating new marketplace listings
+ * - CreateOrderDialog: Form for buyers to request purchases
+ * - MessagingDialog: Real-time chat interface between parties
+ * - OrderCard: Displays order details with status management
+ */
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +39,10 @@ import { CreateOrderDialog } from "@/components/CreateOrderDialog";
 import { MessagingDialog } from "@/components/MessagingDialog";
 import { OrderCard } from "@/components/OrderCard";
 
+/**
+ * Listing Interface
+ * Represents a marketplace listing with seller information
+ */
 interface Listing {
   id: string;
   crop_name: string;
@@ -22,6 +55,18 @@ interface Listing {
   };
 }
 
+/**
+ * Order Interface
+ * Represents a transaction between buyer and seller with full tracking details
+ * 
+ * STATUS FLOW:
+ * - requested: Buyer created order, awaiting seller confirmation
+ * - confirmed: Seller accepted order, preparing for shipment
+ * - in-transit: Order shipped, on the way to buyer
+ * - delivered: Buyer received order, ready for completion
+ * - completed: Transaction finished, review submitted
+ * - cancelled: Order cancelled by buyer or seller
+ */
 interface Order {
   id: string;
   listing_id: string;
@@ -45,49 +90,86 @@ interface Order {
 }
 
 const Marketplace = () => {
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [addListingOpen, setAddListingOpen] = useState(false);
+  // LISTING STATE - Controls marketplace inventory display
+  const [listings, setListings] = useState<Listing[]>([]); // All active listings
+  const [loading, setLoading] = useState(true); // Initial data fetch loading
+  
+  // DIALOG STATE - Controls which modal dialogs are open
+  const [addListingOpen, setAddListingOpen] = useState(false); // Seller listing creation
+  const [orderDialogOpen, setOrderDialogOpen] = useState(false); // Buyer order creation
+  const [messagingDialogOpen, setMessagingDialogOpen] = useState(false); // Buyer-seller chat
+  
+  // SELECTED DATA - Tracks which listing user is interacting with
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
-  const [orderDialogOpen, setOrderDialogOpen] = useState(false);
-  const [messagingDialogOpen, setMessagingDialogOpen] = useState(false);
-  const [buyOrders, setBuyOrders] = useState<Order[]>([]);
-  const [sellOrders, setSellOrders] = useState<Order[]>([]);
+  
+  // ORDER STATE - Tracks user's buy and sell transactions
+  const [buyOrders, setBuyOrders] = useState<Order[]>([]); // Orders where user is buyer
+  const [sellOrders, setSellOrders] = useState<Order[]>([]); // Orders where user is seller
   const [ordersLoading, setOrdersLoading] = useState(true);
+  
+  // MESSAGING STATE - Controls direct messaging between parties
   const [selectedChat, setSelectedChat] = useState<{
-    userId: string;
-    userName: string;
-    listingId: string;
+    userId: string; // ID of other party in conversation
+    userName: string; // Display name of other party
+    listingId: string; // Listing context for conversation
   } | null>(null);
+  
   const { toast } = useToast();
 
+  /**
+   * INITIALIZATION
+   * Load marketplace listings and user's orders on component mount
+   */
   useEffect(() => {
     fetchListings();
     fetchOrders();
   }, []);
 
+  /**
+   * FETCH LISTINGS
+   * Retrieves all active marketplace listings with seller profile information
+   * 
+   * PROCESS:
+   * 1. Query marketplace_listings table for active listings
+   * 2. Extract unique seller IDs from listings
+   * 3. Fetch seller profiles separately (RLS-compliant approach)
+   * 4. Enrich listings with seller names using Map for O(1) lookup
+   * 5. Sort by creation date (newest first)
+   * 
+   * WHY SEPARATE QUERIES:
+   * RLS policies prevent direct joins between listings and profiles
+   * We fetch profiles separately and merge client-side
+   */
   const fetchListings = async () => {
     try {
+      // Step 1: Fetch all active listings
       const { data: listingsData, error } = await supabase
         .from("marketplace_listings")
         .select("*")
-        .eq("status", "active")
-        .order("created_at", { ascending: false });
+        .eq("status", "active") // Only show active listings
+        .order("created_at", { ascending: false }); // Newest first
 
       if (error) throw error;
 
       if (listingsData) {
+        // Step 2: Get unique seller IDs from all listings
         const userIds = [...new Set(listingsData.map((l) => l.seller_id))];
+        
+        // Step 3: Fetch seller profiles for enrichment
         const { data: profilesData } = await supabase
           .from("profiles")
           .select("id, full_name")
           .in("id", userIds);
 
+        // Step 4: Create lookup map for O(1) profile access
         const profilesMap = new Map(profilesData?.map((p) => [p.id, p]) || []);
+        
+        // Step 5: Enrich listings with seller information
         const enriched = listingsData.map((listing) => ({
           ...listing,
           profiles: profilesMap.get(listing.seller_id),
         }));
+        
         setListings(enriched);
       }
     } catch (error) {
@@ -102,11 +184,23 @@ const Marketplace = () => {
     }
   };
 
+  /**
+   * HANDLE CONTACT
+   * Opens messaging dialog for buyer-seller communication
+   * 
+   * Used when buyer wants to ask questions before purchasing
+   */
   const handleContact = (listing: Listing) => {
     setSelectedListing(listing);
     setMessagingDialogOpen(true);
   };
 
+  /**
+   * HANDLE BUY
+   * Opens order creation dialog for purchase flow
+   * 
+   * Initiates transaction process when buyer clicks "Buy Now"
+   */
   const handleBuy = (listing: Listing) => {
     setSelectedListing(listing);
     setOrderDialogOpen(true);

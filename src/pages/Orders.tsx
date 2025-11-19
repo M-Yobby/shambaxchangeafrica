@@ -1,3 +1,45 @@
+/**
+ * ORDERS PAGE
+ * 
+ * Centralized order management interface showing all transactions from both
+ * buyer and seller perspectives. Nested within Marketplace section.
+ * 
+ * PAGE STRUCTURE:
+ * - Two tabs: "My Purchases" and "My Sales"
+ * - My Purchases: Orders where current user is buyer
+ * - My Sales: Orders where current user is seller
+ * 
+ * KEY FEATURES:
+ * 1. Dual perspective order tracking (buy and sell sides)
+ * 2. Status-based order filtering and organization
+ * 3. Integrated messaging (buyer-seller communication)
+ * 4. Status management (confirm, ship, receive, complete)
+ * 5. Review system for completed orders
+ * 6. Real-time order updates
+ * 
+ * ORDER LIFECYCLE VISIBILITY:
+ * 
+ * BUYER VIEW (My Purchases):
+ * - See orders they created
+ * - Track status from requested → completed
+ * - Message sellers about orders
+ * - Mark orders as received
+ * - Leave reviews on completed orders
+ * 
+ * SELLER VIEW (My Sales):
+ * - See incoming order requests
+ * - Confirm or cancel orders
+ * - Mark orders as shipped
+ * - Message buyers about orders
+ * - View completed sales
+ * 
+ * DATA FETCHING:
+ * - Queries orders table twice (once for buy orders, once for sell orders)
+ * - Enriches with listing details (crop name, price)
+ * - Enriches with profile information (buyer/seller names)
+ * - Separate profile fetches due to RLS constraints
+ */
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,73 +70,109 @@ interface Order {
 }
 
 const Orders = () => {
-  const [buyOrders, setBuyOrders] = useState<Order[]>([]);
-  const [sellOrders, setSellOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  // ORDER STATE - Separated by user role in transaction
+  const [buyOrders, setBuyOrders] = useState<Order[]>([]); // User is buyer
+  const [sellOrders, setSellOrders] = useState<Order[]>([]); // User is seller
+  const [loading, setLoading] = useState(true); // Initial data fetch
+  
+  // MESSAGING STATE - For buyer-seller communication
   const [selectedChat, setSelectedChat] = useState<{
-    userId: string;
-    userName: string;
-    listingId: string;
+    userId: string; // Other party in conversation
+    userName: string; // Display name
+    listingId: string; // Order context
   } | null>(null);
 
   useEffect(() => {
     fetchOrders();
   }, []);
 
+  /**
+   * FETCH ORDERS
+   * Retrieves all orders for current user from both buyer and seller perspectives
+   * 
+   * DUAL QUERY STRATEGY:
+   * - Query 1: Orders where user is buyer (purchases)
+   * - Query 2: Orders where user is seller (sales)
+   * 
+   * PROFILE ENRICHMENT:
+   * - Buy orders enriched with seller profiles
+   * - Sell orders enriched with buyer profiles
+   * - Separate profile fetches required due to RLS policies
+   * 
+   * PROCESS:
+   * 1. Get authenticated user
+   * 2. Fetch buy orders (user is buyer_id)
+   * 3. Extract seller IDs and fetch seller profiles
+   * 4. Enrich buy orders with seller names
+   * 5. Fetch sell orders (user is seller_id)
+   * 6. Extract buyer IDs and fetch buyer profiles
+   * 7. Enrich sell orders with buyer names
+   * 8. Sort by creation date (newest first)
+   * 
+   * WHY SEPARATE PROFILES:
+   * RLS policies prevent direct joins between orders and profiles.
+   * We fetch profiles separately based on extracted user IDs,
+   * then merge client-side for display.
+   */
   const fetchOrders = async () => {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch orders where user is buyer
+      // ========== BUYER ORDERS ==========
+      // Fetch orders where current user is the buyer
       const { data: buyData, error: buyError } = await supabase
         .from("orders")
         .select(`
           *,
           listing:marketplace_listings(crop_name, price_per_kg)
         `)
-        .eq("buyer_id", user.id)
-        .order("created_at", { ascending: false });
+        .eq("buyer_id", user.id) // User's purchases
+        .order("created_at", { ascending: false }); // Newest first
 
       if (buyError) throw buyError;
 
-      // Fetch seller profiles separately
+      // Enrich with seller profile information
       const sellerIds = buyData?.map(o => o.seller_id) || [];
       const { data: sellerProfiles } = await supabase
         .from("profiles")
         .select("id, full_name")
         .in("id", sellerIds);
 
+      // Merge seller profiles with orders
       const buyOrdersWithProfiles = buyData?.map(order => ({
         ...order,
         seller_profile: sellerProfiles?.find(p => p.id === order.seller_id),
       })) || [];
 
-      // Fetch orders where user is seller
+      // ========== SELLER ORDERS ==========
+      // Fetch orders where current user is the seller
       const { data: sellData, error: sellError } = await supabase
         .from("orders")
         .select(`
           *,
           listing:marketplace_listings(crop_name, price_per_kg)
         `)
-        .eq("seller_id", user.id)
-        .order("created_at", { ascending: false });
+        .eq("seller_id", user.id) // User's sales
+        .order("created_at", { ascending: false }); // Newest first
 
       if (sellError) throw sellError;
 
-      // Fetch buyer profiles separately
+      // Enrich with buyer profile information
       const buyerIds = sellData?.map(o => o.buyer_id) || [];
       const { data: buyerProfiles } = await supabase
         .from("profiles")
         .select("id, full_name")
         .in("id", buyerIds);
 
+      // Merge buyer profiles with orders
       const sellOrdersWithProfiles = sellData?.map(order => ({
         ...order,
         buyer_profile: buyerProfiles?.find(p => p.id === order.buyer_id),
       })) || [];
 
+      // Update state with enriched orders
       setBuyOrders(buyOrdersWithProfiles as any);
       setSellOrders(sellOrdersWithProfiles as any);
     } catch (error) {

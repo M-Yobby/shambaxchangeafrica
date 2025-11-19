@@ -1,3 +1,44 @@
+/**
+ * MESSAGING DIALOG
+ * 
+ * Real-time chat interface for direct communication between buyers and sellers.
+ * Enables transaction coordination, questions about listings, and delivery arrangements.
+ * 
+ * KEY FEATURES:
+ * 1. Real-time messaging using Supabase Realtime
+ * 2. Instant message delivery and read receipts
+ * 3. Conversation persistence (messages stored in database)
+ * 4. Push notifications for new messages
+ * 5. Auto-scroll to latest message
+ * 6. Read status tracking and updates
+ * 
+ * CONVERSATION FLOW:
+ * 1. Buyer clicks "Contact Seller" on a listing OR clicks message icon in order card
+ * 2. Dialog opens with existing conversation history (if any)
+ * 3. Messages load from database, sorted chronologically
+ * 4. Real-time subscription established for new messages
+ * 5. User types and sends message
+ * 6. Message instantly appears in both users' chats (via Realtime)
+ * 7. Recipient receives push notification
+ * 8. Read status automatically updated when message viewed
+ * 
+ * CONVERSATION ID:
+ * - Generated from sorted user IDs: [user1, user2].sort().join("-")
+ * - Ensures same conversation ID regardless of who initiates
+ * - Example: "abc123-def456" for users abc123 and def456
+ * 
+ * REALTIME INTEGRATION:
+ * - Uses Supabase Realtime for instant message delivery
+ * - Channel: `messages-{conversationId}`
+ * - Listens for: INSERT events on messages table
+ * - Auto-marks messages as read when received by current user
+ * 
+ * DATABASE INTEGRATION:
+ * - Fetches from: messages table filtered by conversation_id
+ * - Inserts to: messages table with sender/recipient/content
+ * - Updates: read status when messages viewed
+ */
+
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -15,20 +56,24 @@ import { Send, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { createNotification, NotificationTemplates } from "@/utils/notificationHelpers";
 
+/**
+ * Message Interface
+ * Represents a single message in the conversation
+ */
 interface Message {
   id: string;
   content: string;
   sender_id: string;
   created_at: string;
-  sender_name?: string;
+  sender_name?: string; // Optional, enriched for display
 }
 
 interface MessagingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  otherUserId: string;
-  otherUserName: string;
-  listingId?: string;
+  otherUserId: string; // ID of person we're chatting with
+  otherUserName: string; // Display name of other person
+  listingId?: string; // Optional listing context
 }
 
 export const MessagingDialog = ({
@@ -38,14 +83,25 @@ export const MessagingDialog = ({
   otherUserName,
   listingId,
 }: MessagingDialogProps) => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string>("");
+  // MESSAGE STATE
+  const [messages, setMessages] = useState<Message[]>([]); // Conversation history
+  const [newMessage, setNewMessage] = useState(""); // Current message being typed
+  const [loading, setLoading] = useState(false); // Initial message fetch
+  const [sending, setSending] = useState(false); // Sending message in progress
+  const [currentUserId, setCurrentUserId] = useState<string>(""); // Authenticated user ID
+  
+  // SCROLL REFERENCE - Used to auto-scroll to latest message
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  /**
+   * CONVERSATION ID
+   * Deterministic ID for the conversation between two users
+   * 
+   * FORMAT: "userId1-userId2" where IDs are alphabetically sorted
+   * ENSURES: Same conversation ID regardless of who initiates chat
+   * EXAMPLE: User A (abc) and User B (xyz) → "abc-xyz"
+   */
   const conversationId = [currentUserId, otherUserId].sort().join("-");
 
   useEffect(() => {
