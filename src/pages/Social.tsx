@@ -13,6 +13,7 @@ import { LeaderboardCard } from "@/components/LeaderboardCard";
 import { useCompleteReferral } from "@/hooks/useCompleteReferral";
 import { validateAndSanitizePost, sanitizeContent } from "@/utils/contentValidation";
 import DOMPurify from "dompurify";
+import { compressImage } from "@/utils/imageCompression";
 import {
   Select,
   SelectContent,
@@ -168,15 +169,27 @@ const Social = () => {
     }
   };
 
-  const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setMediaFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setMediaPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        // Compress image before setting it
+        const compressedFile = await compressImage(file);
+        setMediaFile(compressedFile);
+        
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setMediaPreview(reader.result as string);
+        };
+        reader.readAsDataURL(compressedFile);
+      } catch (error) {
+        console.error('Error compressing image:', error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to process image"
+        });
+      }
     }
   };
 
