@@ -1,3 +1,16 @@
+/**
+ * APP COMPONENT
+ * 
+ * Root application component that sets up routing, global providers, and page structure.
+ * Configures React Query, tooltips, and toast notifications for the entire app.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * ReactDOM.render(<App />, document.getElementById('root'))
+ * ```
+ */
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";

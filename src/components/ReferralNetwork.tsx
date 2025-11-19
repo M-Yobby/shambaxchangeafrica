@@ -1,6 +1,27 @@
+/**
+ * REFERRAL NETWORK
+ * 
+ * Visual representation of user's referral network as a circular graph.
+ * Shows completed and pending referrals connected to the user.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <ReferralNetwork stats={{ total: 5, completed: 3, pending: 2 }} />
+ * ```
+ */
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users } from "lucide-react";
 
+/**
+ * Props for the ReferralNetwork component
+ * @interface ReferralNetworkProps
+ * @property {object} stats - Referral statistics
+ * @property {number} stats.total - Total number of referrals
+ * @property {number} stats.completed - Number of completed/active referrals
+ * @property {number} stats.pending - Number of pending referrals
+ */
 interface ReferralNetworkProps {
   stats: {
     total: number;

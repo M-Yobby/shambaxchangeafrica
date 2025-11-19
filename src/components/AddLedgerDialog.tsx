@@ -1,3 +1,20 @@
+/**
+ * ADD LEDGER DIALOG
+ * 
+ * Form for recording financial transactions (income and expenses) in the farm ledger.
+ * Enables farmers to track their financial activities with detailed record-keeping.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <AddLedgerDialog
+ *   open={isDialogOpen}
+ *   onOpenChange={setIsDialogOpen}
+ *   onSuccess={refreshLedgerData}
+ * />
+ * ```
+ */
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,6 +26,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
+/**
+ * Props for the AddLedgerDialog component
+ * @interface AddLedgerDialogProps
+ * @property {boolean} open - Controls dialog visibility
+ * @property {(open: boolean) => void} onOpenChange - Callback when dialog open state changes
+ * @property {() => void} onSuccess - Callback triggered after successful ledger entry creation
+ */
 interface AddLedgerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;

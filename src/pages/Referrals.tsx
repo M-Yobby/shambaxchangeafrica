@@ -1,3 +1,16 @@
+/**
+ * REFERRALS PAGE
+ * 
+ * Referral program management showing referral code, network visualization,
+ * and referral statistics. Users earn rewards for successful referrals.
+ * 
+ * @page
+ * @example
+ * ```tsx
+ * <Route path="/referrals" element={<Referrals />} />
+ * ```
+ */
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +23,10 @@ import { Copy, Users, Gift, Share2, CheckCircle, Clock, TrendingUp, Award } from
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReferralNetwork } from "@/components/ReferralNetwork";
 
+/**
+ * Single referral data structure
+ * @interface Referral
+ */
 interface Referral {
   id: string;
   referred_id: string;
@@ -20,6 +37,10 @@ interface Referral {
   };
 }
 
+/**
+ * Referral statistics aggregation
+ * @interface ReferralStats
+ */
 interface ReferralStats {
   total: number;
   pending: number;

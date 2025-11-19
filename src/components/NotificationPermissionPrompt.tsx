@@ -1,3 +1,16 @@
+/**
+ * NOTIFICATION PERMISSION PROMPT
+ * 
+ * Floating prompt that appears after 3 seconds to request browser notification permissions.
+ * Only shows if notifications are supported and permission hasn't been granted or denied.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <NotificationPermissionPrompt />
+ * ```
+ */
+
 import { useState, useEffect } from 'react';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';

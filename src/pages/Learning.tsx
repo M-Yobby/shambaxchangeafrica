@@ -1,3 +1,16 @@
+/**
+ * LEARNING HUB PAGE
+ * 
+ * Educational resource library for farmers covering sustainable practices,
+ * crop management, marketing strategies, and agricultural techniques.
+ * 
+ * @page
+ * @example
+ * ```tsx
+ * <Route path="/learning" element={<Learning />} />
+ * ```
+ */
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Video, Clock } from "lucide-react";

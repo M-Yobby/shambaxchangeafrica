@@ -1,8 +1,32 @@
+/**
+ * LEADERBOARD CARD
+ * 
+ * Displays ranked list of farmers with icons for top 3 positions.
+ * Supports different metrics (sales, points, engagement) with custom formatting.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <LeaderboardCard
+ *   entries={topSellers}
+ *   title="Top Sellers"
+ *   description="Farmers with highest sales"
+ *   metric="total_sales"
+ *   formatValue={(val) => `KES ${val.toLocaleString()}`}
+ *   icon={<DollarSign />}
+ * />
+ * ```
+ */
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Medal, Award, TrendingUp } from "lucide-react";
 
+/**
+ * Single leaderboard entry data structure
+ * @interface LeaderboardEntry
+ */
 interface LeaderboardEntry {
   user_id: string;
   full_name: string;
@@ -17,6 +41,16 @@ interface LeaderboardEntry {
   avg_rating: number;
 }
 
+/**
+ * Props for the LeaderboardCard component
+ * @interface LeaderboardCardProps
+ * @property {LeaderboardEntry[]} entries - Array of leaderboard entries to display
+ * @property {string} title - Card title
+ * @property {string} description - Card description
+ * @property {keyof LeaderboardEntry} metric - Which metric to display as the main value
+ * @property {(value: any, entry?: LeaderboardEntry) => string} [formatValue] - Custom formatter for metric value
+ * @property {React.ReactNode} [icon] - Optional icon to display in header
+ */
 interface LeaderboardCardProps {
   entries: LeaderboardEntry[];
   title: string;
@@ -26,7 +60,7 @@ interface LeaderboardCardProps {
   icon?: React.ReactNode;
 }
 
-export const LeaderboardCard = ({ 
+export const LeaderboardCard = ({
   entries, 
   title, 
   description, 
