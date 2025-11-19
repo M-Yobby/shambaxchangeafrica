@@ -70,7 +70,12 @@ const Social = () => {
   const [leaderboardsLoading, setLeaderboardsLoading] = useState(true);
   const [selectedRegion, setSelectedRegion] = useState<string>("all");
   const [regions, setRegions] = useState<string[]>([]);
+  const [isPulling, setIsPulling] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const feedContainerRef = useRef<HTMLDivElement>(null);
+  const touchStartY = useRef<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { completeReferral } = useCompleteReferral();
@@ -109,6 +114,55 @@ const Social = () => {
     await fetchPosts(nextPage * POSTS_PER_PAGE, true);
     setPage(nextPage);
     setLoadingMore(false);
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    setPage(0);
+    setHasMore(true);
+    await Promise.all([
+      fetchPosts(0, false),
+      fetchTrendingPosts(),
+    ]);
+    setIsRefreshing(false);
+    setPullDistance(0);
+    setIsPulling(false);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const container = feedContainerRef.current;
+    if (!container) return;
+    
+    // Only enable pull-to-refresh when scrolled to the top
+    if (container.scrollTop === 0) {
+      touchStartY.current = e.touches[0].clientY;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const container = feedContainerRef.current;
+    if (!container || container.scrollTop > 0) return;
+    
+    const touchY = e.touches[0].clientY;
+    const distance = touchY - touchStartY.current;
+    
+    // Only allow pulling down (positive distance) when at top
+    if (distance > 0 && container.scrollTop === 0) {
+      setIsPulling(true);
+      // Apply diminishing returns for smooth feel
+      setPullDistance(Math.min(distance * 0.5, 100));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    const PULL_THRESHOLD = 60;
+    
+    if (pullDistance >= PULL_THRESHOLD && !isRefreshing) {
+      handleRefresh();
+    } else {
+      setPullDistance(0);
+      setIsPulling(false);
+    }
   };
 
   const fetchTrendingPosts = async () => {
@@ -586,6 +640,32 @@ const Social = () => {
             </CardContent>
           </Card>
 
+          <div 
+            ref={feedContainerRef}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="relative"
+            style={{
+              transform: isPulling ? `translateY(${pullDistance}px)` : 'none',
+              transition: isPulling ? 'none' : 'transform 0.3s ease-out'
+            }}
+          >
+            {/* Pull to refresh indicator */}
+            {(isPulling || isRefreshing) && (
+              <div 
+                className="absolute -top-16 left-0 right-0 flex items-center justify-center h-16"
+                style={{ opacity: Math.min(pullDistance / 60, 1) }}
+              >
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span className="text-sm">
+                    {isRefreshing ? 'Refreshing...' : pullDistance >= 60 ? 'Release to refresh' : 'Pull to refresh'}
+                  </span>
+                </div>
+              </div>
+            )}
+
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -675,6 +755,7 @@ const Social = () => {
               </div>
             </div>
           )}
+          </div>
         </div>
 
         <div className="space-y-6">
