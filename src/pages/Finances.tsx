@@ -6,11 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Download, Search, TrendingUp, TrendingDown, DollarSign, Calendar, Filter, PieChart as PieChartIcon } from "lucide-react";
+import { Download, Search, TrendingUp, TrendingDown, DollarSign, Calendar, Filter, PieChart as PieChartIcon, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AddLedgerDialog from "@/components/AddLedgerDialog";
-import { format } from "date-fns";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths, subYears } from "date-fns";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
 interface LedgerEntry {
   id: string;
@@ -32,6 +32,7 @@ const Finances = () => {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [comparisonView, setComparisonView] = useState<"monthly" | "yearly">("monthly");
   const { toast } = useToast();
 
   const [summary, setSummary] = useState({
@@ -70,6 +71,61 @@ const Finances = () => {
     return Object.entries(categoryTotals)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
+  };
+
+  // Get category comparison data across time periods
+  const getCategoryComparison = () => {
+    const now = new Date();
+    const periods: { label: string; start: Date; end: Date }[] = [];
+
+    if (comparisonView === "monthly") {
+      // Last 6 months
+      for (let i = 5; i >= 0; i--) {
+        const date = subMonths(now, i);
+        periods.push({
+          label: format(date, "MMM yyyy"),
+          start: startOfMonth(date),
+          end: endOfMonth(date),
+        });
+      }
+    } else {
+      // Last 3 years
+      for (let i = 2; i >= 0; i--) {
+        const date = subYears(now, i);
+        periods.push({
+          label: format(date, "yyyy"),
+          start: startOfYear(date),
+          end: endOfYear(date),
+        });
+      }
+    }
+
+    // Get all categories from all expenses
+    const allCategories = new Set<string>();
+    entries
+      .filter(e => e.type === 'expense')
+      .forEach(entry => allCategories.add(categorizeExpense(entry.item)));
+
+    // Build comparison data
+    return periods.map(period => {
+      const periodExpenses = entries.filter(e => {
+        const entryDate = new Date(e.date);
+        return e.type === 'expense' && 
+               entryDate >= period.start && 
+               entryDate <= period.end;
+      });
+
+      const categoryTotals: Record<string, number> = {};
+      periodExpenses.forEach(entry => {
+        const category = categorizeExpense(entry.item);
+        categoryTotals[category] = (categoryTotals[category] || 0) + Number(entry.amount);
+      });
+
+      return {
+        period: period.label,
+        ...categoryTotals,
+      };
+    });
   };
 
   const COLORS = [
@@ -265,6 +321,87 @@ const Finances = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Expense Comparison Over Time */}
+      {entries.some(e => e.type === 'expense') && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5" />
+                  Expense Comparison
+                </CardTitle>
+                <CardDescription>Track spending trends across time periods</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant={comparisonView === "monthly" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setComparisonView("monthly")}
+                >
+                  Monthly
+                </Button>
+                <Button
+                  variant={comparisonView === "yearly" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setComparisonView("yearly")}
+                >
+                  Yearly
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {getCategoryComparison().some(period => 
+              Object.keys(period).some(key => key !== 'period' && period[key as keyof typeof period])
+            ) ? (
+              <ResponsiveContainer width="100%" height={400}>
+                <BarChart data={getCategoryComparison()}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis 
+                    dataKey="period" 
+                    stroke="hsl(var(--foreground))"
+                    style={{ fontSize: '12px' }}
+                  />
+                  <YAxis 
+                    stroke="hsl(var(--foreground))"
+                    style={{ fontSize: '12px' }}
+                    tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+                  />
+                  <Tooltip 
+                    formatter={(value: number) => `KES ${value.toLocaleString()}`}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Legend />
+                  {Array.from(new Set(
+                    entries
+                      .filter(e => e.type === 'expense')
+                      .map(e => categorizeExpense(e.item))
+                  )).map((category, index) => (
+                    <Bar 
+                      key={category} 
+                      dataKey={category} 
+                      fill={COLORS[index % COLORS.length]}
+                      radius={[4, 4, 0, 0]}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No expense data available for comparison</p>
+                <p className="text-sm mt-2">Add transactions to see spending trends</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Expense Category Breakdown */}
       {filteredEntries.some(e => e.type === 'expense') && (
