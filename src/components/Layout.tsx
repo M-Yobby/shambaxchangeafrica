@@ -66,7 +66,6 @@ const Layout = ({ children }: LayoutProps) => {
     { path: "/market-intel", label: "Market Intel", icon: TrendingUp },
     { path: "/marketplace", label: "Marketplace", icon: Store },
     { path: "/social", label: "Social", icon: Users },
-    { path: "/leaderboards", label: "Leaderboards", icon: Trophy },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -100,7 +99,7 @@ const Layout = ({ children }: LayoutProps) => {
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
-            {navItems.slice(0, 5).map((item) => (
+            {navItems.map((item) => (
               <Link key={item.path} to={item.path}>
                 <Button
                   variant={isActive(item.path) ? "default" : "ghost"}

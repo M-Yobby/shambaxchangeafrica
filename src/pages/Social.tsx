@@ -1,16 +1,25 @@
 import { useState, useEffect, useRef } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Share2, Send, TrendingUp, Loader2, Image as ImageIcon } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Heart, MessageCircle, Share2, Send, TrendingUp, Loader2, Image as ImageIcon, Trophy, RefreshCw, DollarSign, Users, Flame, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import CommentSection from "@/components/CommentSection";
+import { LeaderboardCard } from "@/components/LeaderboardCard";
 import { useCompleteReferral } from "@/hooks/useCompleteReferral";
 import { validateAndSanitizePost, sanitizeContent } from "@/utils/contentValidation";
 import DOMPurify from "dompurify";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Post {
   id: string;
@@ -27,6 +36,23 @@ interface Post {
   user_liked?: boolean;
 }
 
+interface LeaderboardEntry {
+  user_id: string;
+  full_name: string;
+  location: string;
+  total_sales: number;
+  completed_orders: number;
+  avg_rating: number;
+  total_reviews: number;
+  points: number;
+  level: number;
+  streak_days: number;
+  total_posts: number;
+  total_likes_received: number;
+  total_likes_given: number;
+  total_comments: number;
+}
+
 const Social = () => {
   const [postContent, setPostContent] = useState("");
   const [posts, setPosts] = useState<Post[]>([]);
@@ -35,6 +61,10 @@ const Social = () => {
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [showComments, setShowComments] = useState<string | null>(null);
+  const [leaderboards, setLeaderboards] = useState<LeaderboardEntry[]>([]);
+  const [leaderboardsLoading, setLeaderboardsLoading] = useState(true);
+  const [selectedRegion, setSelectedRegion] = useState<string>("all");
+  const [regions, setRegions] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { completeReferral } = useCompleteReferral();
@@ -42,6 +72,8 @@ const Social = () => {
   useEffect(() => {
     fetchPosts();
     fetchTrendingPosts();
+    fetchLeaderboards();
+    fetchRegions();
   }, []);
 
   const fetchTrendingPosts = async () => {
@@ -294,15 +326,132 @@ const Social = () => {
     }
   };
 
+  const fetchRegions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('location')
+        .not('location', 'is', null);
+
+      if (error) throw error;
+
+      const uniqueRegions = [...new Set(data.map(p => p.location))].filter(Boolean);
+      setRegions(uniqueRegions);
+    } catch (error) {
+      console.error('Error fetching regions:', error);
+    }
+  };
+
+  const fetchLeaderboards = async () => {
+    try {
+      setLeaderboardsLoading(true);
+      
+      let query = supabase
+        .from('leaderboards')
+        .select('*');
+
+      if (selectedRegion !== "all") {
+        query = query.eq('location', selectedRegion);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      setLeaderboards(data || []);
+    } catch (error) {
+      console.error('Error fetching leaderboards:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load leaderboards",
+        variant: "destructive",
+      });
+    } finally {
+      setLeaderboardsLoading(false);
+    }
+  };
+
+  const refreshLeaderboards = async () => {
+    try {
+      toast({
+        title: "Refreshing...",
+        description: "Updating leaderboard data",
+      });
+
+      const { error } = await supabase.functions.invoke('refresh-leaderboard');
+
+      if (error) throw error;
+
+      await fetchLeaderboards();
+
+      toast({
+        title: "Success",
+        description: "Leaderboards refreshed successfully",
+      });
+    } catch (error) {
+      console.error('Error refreshing leaderboards:', error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh leaderboards",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getTopSellers = () => {
+    return [...leaderboards]
+      .sort((a, b) => b.total_sales - a.total_sales)
+      .slice(0, 10);
+  };
+
+  const getTopByPoints = () => {
+    return [...leaderboards]
+      .sort((a, b) => b.points - a.points)
+      .slice(0, 10);
+  };
+
+  const getTopBySocialEngagement = () => {
+    return [...leaderboards]
+      .sort((a, b) => {
+        const engagementA = a.total_likes_received + a.total_comments;
+        const engagementB = b.total_likes_received + b.total_comments;
+        return engagementB - engagementA;
+      })
+      .slice(0, 10);
+  };
+
+  const getTopStreaks = () => {
+    return [...leaderboards]
+      .sort((a, b) => b.streak_days - a.streak_days)
+      .slice(0, 10);
+  };
+
+  useEffect(() => {
+    fetchLeaderboards();
+  }, [selectedRegion]);
+
   return (
     <div className="space-y-6 pb-20 md:pb-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Shamba Social</h1>
-        <p className="text-muted-foreground">Connect with fellow farmers</p>
+        <h1 className="text-3xl font-bold text-foreground mb-2">Social Hub</h1>
+        <p className="text-muted-foreground">Connect with farmers and see top performers</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
+      <Tabs defaultValue="feed" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="feed" className="gap-2">
+            <Users className="h-4 w-4" />
+            Community Feed
+          </TabsTrigger>
+          <TabsTrigger value="leaderboards" className="gap-2">
+            <Trophy className="h-4 w-4" />
+            Leaderboards
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="feed" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardContent className="pt-6">
               <div className="flex gap-3">
@@ -482,10 +631,113 @@ const Social = () => {
                 ))}
               </div>
             </CardContent>
-          </Card>
+            </Card>
+          </div>
         </div>
-      </div>
-    </div>
+      </TabsContent>
+
+      <TabsContent value="leaderboards" className="space-y-6">
+      {leaderboardsLoading ? (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <p className="text-muted-foreground">Top performing farmers in the community</p>
+            
+            <div className="flex items-center gap-3 flex-wrap">
+              <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                <SelectTrigger className="w-[180px]">
+                  <MapPin className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Select region" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Regions</SelectItem>
+                  {regions.map((region) => (
+                    <SelectItem key={region} value={region}>
+                      {region}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button onClick={refreshLeaderboards} size="sm" variant="outline">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
+          </div>
+
+          <Tabs defaultValue="sellers" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="sellers">
+                <DollarSign className="h-4 w-4 mr-2" />
+                Top Sellers
+              </TabsTrigger>
+              <TabsTrigger value="points">
+                <Trophy className="h-4 w-4 mr-2" />
+                Points
+              </TabsTrigger>
+              <TabsTrigger value="social">
+                <Users className="h-4 w-4 mr-2" />
+                Social
+              </TabsTrigger>
+              <TabsTrigger value="streaks">
+                <Flame className="h-4 w-4 mr-2" />
+                Streaks
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="sellers">
+              <LeaderboardCard
+                entries={getTopSellers()}
+                title="Top Sellers"
+                description="Farmers with highest sales revenue"
+                metric="total_sales"
+                formatValue={(v) => `KES ${v.toLocaleString()}`}
+                icon={<DollarSign className="h-5 w-5" />}
+              />
+            </TabsContent>
+
+            <TabsContent value="points">
+              <LeaderboardCard
+                entries={getTopByPoints()}
+                title="Top by Points"
+                description="Most active community members"
+                metric="points"
+                formatValue={(v) => `${v.toLocaleString()} pts`}
+                icon={<Trophy className="h-5 w-5" />}
+              />
+            </TabsContent>
+
+            <TabsContent value="social">
+              <LeaderboardCard
+                entries={getTopBySocialEngagement()}
+                title="Social Leaders"
+                description="Most engaging farmers on the platform"
+                metric="total_likes_received"
+                formatValue={(v, entry) => `${(entry?.total_likes_received || 0) + (entry?.total_comments || 0)} interactions`}
+                icon={<Users className="h-5 w-5" />}
+              />
+            </TabsContent>
+
+            <TabsContent value="streaks">
+              <LeaderboardCard
+                entries={getTopStreaks()}
+                title="Longest Streaks"
+                description="Most consistent daily users"
+                metric="streak_days"
+                formatValue={(v) => `${v} days`}
+                icon={<Flame className="h-5 w-5" />}
+              />
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
+    </TabsContent>
+  </Tabs>
+</div>
   );
 };
 
