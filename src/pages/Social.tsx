@@ -467,8 +467,20 @@ const Social = () => {
                     maxLength={2000}
                   />
                   {mediaPreview && (
-                    <div className="relative mt-2">
-                      <img src={mediaPreview} alt="Preview" className="max-h-48 rounded-lg" />
+                    <div className="relative mt-2 bg-muted rounded-lg">
+                      {mediaFile?.type.startsWith('video/') ? (
+                        <video 
+                          src={mediaPreview} 
+                          controls 
+                          className="w-full max-h-96 rounded-lg object-contain"
+                        />
+                      ) : (
+                        <img 
+                          src={mediaPreview} 
+                          alt="Preview" 
+                          className="w-full max-h-96 rounded-lg object-contain"
+                        />
+                      )}
                       <Button
                         variant="destructive"
                         size="sm"
@@ -487,7 +499,7 @@ const Social = () => {
                       <input
                         ref={fileInputRef}
                         type="file"
-                        accept="image/*"
+                        accept="image/*,video/*"
                         className="hidden"
                         onChange={handleMediaSelect}
                       />
@@ -549,7 +561,21 @@ const Social = () => {
                           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
                         />
                         {post.media_url && (
-                          <img src={post.media_url} alt="Post media" className="rounded-lg mb-4 max-h-96 w-full object-cover" />
+                          <div className="bg-muted rounded-lg mb-4">
+                            {post.media_url.includes('video') || post.media_url.match(/\.(mp4|webm|ogg)$/i) ? (
+                              <video 
+                                src={post.media_url} 
+                                controls 
+                                className="w-full max-h-[500px] rounded-lg object-contain"
+                              />
+                            ) : (
+                              <img 
+                                src={post.media_url} 
+                                alt="Post media" 
+                                className="w-full max-h-[500px] rounded-lg object-contain"
+                              />
+                            )}
+                          </div>
                         )}
                         <div className="flex items-center gap-6 text-muted-foreground">
                           <button 
