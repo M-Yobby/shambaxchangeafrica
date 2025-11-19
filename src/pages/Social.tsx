@@ -60,6 +60,9 @@ const Social = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [trendingPosts, setTrendingPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [showComments, setShowComments] = useState<string | null>(null);
@@ -67,6 +70,7 @@ const Social = () => {
   const [leaderboardsLoading, setLeaderboardsLoading] = useState(true);
   const [selectedRegion, setSelectedRegion] = useState<string>("all");
   const [regions, setRegions] = useState<string[]>([]);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { completeReferral } = useCompleteReferral();
@@ -77,6 +81,35 @@ const Social = () => {
     fetchLeaderboards();
     fetchRegions();
   }, []);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    if (!loadMoreRef.current || !hasMore || loadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMorePosts();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(loadMoreRef.current);
+
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore]);
+
+  const loadMorePosts = async () => {
+    if (loadingMore || !hasMore) return;
+    
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    const POSTS_PER_PAGE = 10;
+    await fetchPosts(nextPage * POSTS_PER_PAGE, true);
+    setPage(nextPage);
+    setLoadingMore(false);
+  };
 
   const fetchTrendingPosts = async () => {
     try {
@@ -107,7 +140,8 @@ const Social = () => {
     }
   };
 
-  const fetchPosts = async () => {
+  const fetchPosts = async (offset: number = 0, append: boolean = false) => {
+    const POSTS_PER_PAGE = 10;
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -115,14 +149,20 @@ const Social = () => {
         .from("posts")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(20);
+        .range(offset, offset + POSTS_PER_PAGE - 1);
 
       if (error) throw error;
 
       if (!postsData) {
         setPosts([]);
         setLoading(false);
+        setHasMore(false);
         return;
+      }
+
+      // If we got fewer posts than requested, there are no more posts
+      if (postsData.length < POSTS_PER_PAGE) {
+        setHasMore(false);
       }
 
       // Fetch profiles separately
@@ -150,13 +190,13 @@ const Social = () => {
           user_liked: likedPostIds.has(post.id),
         }));
         
-        setPosts(enrichedPosts);
+        setPosts(prev => append ? [...prev, ...enrichedPosts] : enrichedPosts);
       } else {
         const enrichedPosts = postsData.map(post => ({
           ...post,
           profiles: profilesMap.get(post.user_id),
         }));
-        setPosts(enrichedPosts);
+        setPosts(prev => append ? [...prev, ...enrichedPosts] : enrichedPosts);
       }
     } catch (error) {
       console.error("Error fetching posts:", error);
@@ -255,7 +295,9 @@ const Social = () => {
       setPostContent("");
       setMediaFile(null);
       setMediaPreview(null);
-      fetchPosts();
+      setPage(0);
+      setHasMore(true);
+      fetchPosts(0, false);
       fetchTrendingPosts();
     } catch (error) {
       console.error("Error creating post:", error);
@@ -309,7 +351,9 @@ const Social = () => {
         }
       }
 
-      fetchPosts();
+      fetchPosts(0, false);
+      setPage(0);
+      setHasMore(true);
       fetchTrendingPosts();
     } catch (error) {
       console.error("Error toggling like:", error);
@@ -334,7 +378,9 @@ const Social = () => {
         title: "Shared!",
         description: "Post shared to your network",
       });
-      fetchPosts();
+      fetchPosts(0, false);
+      setPage(0);
+      setHasMore(true);
     } catch (error) {
       console.error("Error sharing:", error);
     }
@@ -613,6 +659,20 @@ const Social = () => {
                   </CardContent>
                 </Card>
               ))}
+              
+              {/* Infinite scroll trigger */}
+              <div ref={loadMoreRef} className="py-4">
+                {loadingMore && (
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                )}
+                {!hasMore && posts.length > 0 && (
+                  <p className="text-center text-sm text-muted-foreground">
+                    No more posts to load
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </div>
