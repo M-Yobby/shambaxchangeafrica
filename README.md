@@ -1129,31 +1129,59 @@ Based on recent security review, the following areas need attention:
   - **Impact**: Service abuse, API quota exhaustion
   - **Status**: Requires implementation of webhook signature validation
 
-#### ⚠️ Important
-- **Missing input validation**: Auth forms don't validate email format or password strength
-  - **Impact**: Weak passwords, malformed data
-  - **Status**: Requires zod schema implementation
+#### ✅ Implemented Security Measures
 
-- **Public social content**: Posts and comments viewable by unauthenticated users
-  - **Impact**: Activity tracking without account
-  - **Status**: Design decision - can be changed to require auth
+1. **Authentication & Input Validation**
+   - ✅ Zod validation on auth forms (email format, password strength)
+   - ✅ Social content restricted to authenticated users only
+   - ✅ XSS prevention with DOMPurify and content length limits
 
-- **XSS risks**: Post content lacks length limits and sanitization
-  - **Impact**: Stored XSS attacks, UI disruption
-  - **Status**: Requires validation schema with length limits
+2. **Rate Limiting**
+   - ✅ In-memory rate limiter on all edge functions
+   - ✅ Different tiers: AUTH (5/15min), AI (20/min), API (60/min)
+   - ✅ IP-based tracking for anonymous, user-based for authenticated
+   - ✅ Automatic cleanup to prevent memory leaks
+   - See `docs/RATE_LIMITING.md` for details
+
+3. **Row-Level Security (RLS)**
+   - ✅ All tables protected with RLS policies
+   - ✅ User data isolation (crops, ledger, stats, orders)
+   - ✅ Proper authentication checks on all queries
+
+4. **Edge Function Security**
+   - ✅ CORS headers properly configured
+   - ✅ JWT verification on user-facing endpoints
+   - ✅ Webhook validation on cron endpoints (needs secret setup)
+   - ✅ No raw SQL execution allowed
+
+#### ⚠️ Known Considerations
+
+- **Edge function secrets**: Cron functions require WEBHOOK_SECRET configuration
+  - **Impact**: Unauthorized access to cron endpoints
+  - **Status**: Secret needs to be configured and webhook validation enabled
+
+- **Database functions**: Some SECURITY DEFINER functions need search_path hardening
+  - **Impact**: Potential SQL injection in complex scenarios
+  - **Status**: Low priority - requires migration
+
+- **Leaked password protection**: Disabled in auth settings
+  - **Impact**: Users can use compromised passwords
+  - **Status**: Can be enabled in Lovable Cloud auth settings
 
 ### Security Best Practices
 
 For production deployment:
 
-1. **Enable email verification** in Supabase Auth settings
-2. **Implement rate limiting** on API endpoints
-3. **Set up monitoring** for suspicious activity
-4. **Regular security audits** of RLS policies
-5. **Keep dependencies updated** with `npm audit`
-6. **Use environment variables** for all secrets
-7. **Enable database backups** (automatic in Lovable Cloud)
-8. **Review edge function logs** regularly
+1. ✅ **Rate limiting implemented** on all API endpoints
+2. ✅ **Input validation** with zod schemas on auth and user content
+3. ✅ **XSS prevention** with DOMPurify sanitization
+4. ⚠️ **Enable email verification** in Supabase Auth settings
+5. ⚠️ **Configure WEBHOOK_SECRET** for cron job security
+6. ⚠️ **Set up monitoring** for suspicious activity and rate limit hits
+7. ✅ **RLS policies active** on all user data tables
+8. ⚠️ **Keep dependencies updated** with `npm audit`
+9. ⚠️ **Use environment variables** for all secrets
+10. ✅ **Database backups** (automatic in Lovable Cloud)
 
 ### Reporting Security Issues
 
@@ -1183,6 +1211,42 @@ const { data: { session } } = await supabase.auth.getSession();
 const token = session?.access_token;
 ```
 
+### Rate Limiting
+
+All edge functions are protected by rate limiting to prevent abuse and ensure fair usage. Different endpoint types have different limits:
+
+- **AUTH**: 5 requests per 15 minutes (login/signup)
+- **AI**: 20 requests per minute (ai-chat, ai-insights)
+- **API**: 60 requests per minute (fetch-weather, general operations)
+- **EXPENSIVE**: 10 requests per minute (large operations)
+
+#### Rate Limit Headers
+
+Every API response includes these headers:
+
+```
+X-RateLimit-Remaining: 18
+X-RateLimit-Reset: 2025-11-19T12:01:00Z
+```
+
+#### Rate Limit Exceeded (429)
+
+When you exceed the rate limit, you'll receive:
+
+```json
+{
+  "error": "Too Many Requests",
+  "message": "Rate limit exceeded. Please try again later.",
+  "retryAfter": 45
+}
+```
+
+**Response Headers:**
+- `Retry-After`: Seconds until you can retry
+- `X-RateLimit-Reset`: ISO timestamp when limit resets
+
+For detailed information, see `docs/RATE_LIMITING.md`.
+
 ### Edge Function Endpoints
 
 Base URL: `https://rqhiemvbadaokpbvxhwv.supabase.co/functions/v1`
@@ -1190,6 +1254,8 @@ Base URL: `https://rqhiemvbadaokpbvxhwv.supabase.co/functions/v1`
 #### POST `/ai-chat`
 
 Chat with the AI farming assistant.
+
+**Rate Limit**: 20 requests per minute
 
 **Request:**
 ```json
@@ -1209,6 +1275,8 @@ Chat with the AI farming assistant.
 #### POST `/ai-insights`
 
 Get personalized farming insights.
+
+**Rate Limit**: 20 requests per minute
 
 **Request:**
 ```json
@@ -1238,6 +1306,8 @@ Get personalized farming insights.
 #### POST `/fetch-weather`
 
 Get real-time weather data.
+
+**Rate Limit**: 60 requests per minute
 
 **Request:**
 ```json
