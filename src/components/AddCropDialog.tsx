@@ -3,9 +3,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCompleteReferral } from "@/hooks/useCompleteReferral";
+import { usePopularCrops } from "@/hooks/usePopularCrops";
 import { Loader2 } from "lucide-react";
 
 interface AddCropDialogProps {
@@ -15,6 +17,7 @@ interface AddCropDialogProps {
 }
 
 const AddCropDialog = ({ open, onOpenChange, onSuccess }: AddCropDialogProps) => {
+  const { crops: cropOptions } = usePopularCrops();
   const [cropName, setCropName] = useState("");
   const [plantingDate, setPlantingDate] = useState("");
   const [acreage, setAcreage] = useState("");
@@ -87,13 +90,18 @@ const AddCropDialog = ({ open, onOpenChange, onSuccess }: AddCropDialogProps) =>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="cropName">Crop Name *</Label>
-            <Input
-              id="cropName"
-              value={cropName}
-              onChange={(e) => setCropName(e.target.value)}
-              placeholder="e.g., Maize, Cabbage, Tomatoes"
-              required
-            />
+            <Select value={cropName} onValueChange={setCropName} required>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a crop" />
+              </SelectTrigger>
+              <SelectContent>
+                {cropOptions.map((crop) => (
+                  <SelectItem key={crop} value={crop}>
+                    {crop}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="plantingDate">Planting Date *</Label>

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calculator, TrendingUp } from "lucide-react";
+import { usePopularCrops } from "@/hooks/usePopularCrops";
 
 const CROP_YIELD_DATA: Record<string, { avgYield: number; unit: string; growthPeriod: number }> = {
   maize: { avgYield: 2500, unit: "kg/acre", growthPeriod: 120 },
@@ -24,6 +25,7 @@ interface YieldCalculatorDialogProps {
 }
 
 export default function YieldCalculatorDialog({ open, onOpenChange }: YieldCalculatorDialogProps) {
+  const { crops: popularCrops } = usePopularCrops();
   const [selectedCrop, setSelectedCrop] = useState("");
   const [acreage, setAcreage] = useState("");
   const [expectedYield, setExpectedYield] = useState<number | null>(null);
@@ -135,14 +137,11 @@ export default function YieldCalculatorDialog({ open, onOpenChange }: YieldCalcu
                 <SelectValue placeholder="Choose a crop" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="maize">Maize (Corn)</SelectItem>
-                <SelectItem value="beans">Beans</SelectItem>
-                <SelectItem value="wheat">Wheat</SelectItem>
-                <SelectItem value="rice">Rice</SelectItem>
-                <SelectItem value="potatoes">Potatoes</SelectItem>
-                <SelectItem value="tomatoes">Tomatoes</SelectItem>
-                <SelectItem value="cabbage">Cabbage</SelectItem>
-                <SelectItem value="onions">Onions</SelectItem>
+                {popularCrops.map((crop) => (
+                  <SelectItem key={crop.toLowerCase()} value={crop.toLowerCase()}>
+                    {crop}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
