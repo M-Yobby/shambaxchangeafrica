@@ -645,6 +645,13 @@ export type Database = {
       }
       complete_referral: { Args: { p_referred_id: string }; Returns: undefined }
       generate_referral_code: { Args: never; Returns: string }
+      get_popular_crops: {
+        Args: never
+        Returns: {
+          crop_name: string
+          usage_count: number
+        }[]
+      }
       process_referral: {
         Args: { p_new_user_id: string; p_referral_code: string }
         Returns: undefined
