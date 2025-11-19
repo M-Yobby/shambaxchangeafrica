@@ -247,6 +247,22 @@ serve(async (req) => {
       recentTransactions: ledger?.slice(0, 5) || []
     };
 
+    // ========================================
+    // STEP 12: CONSTRUCT AI SYSTEM PROMPT
+    // ========================================
+    // Build comprehensive prompt with ALL context data
+    // The prompt design is critical - it includes:
+    // 1. Role definition (AI farming advisor for East African farmers)
+    // 2. Complete farmer profile (location, farm size, crops with details)
+    // 3. Real-time environmental data (current weather conditions)
+    // 4. Market intelligence (current prices for their specific crops)
+    // 5. Financial performance data (income, expenses, profit margins)
+    // 6. Recent transaction history (spending patterns)
+    // 7. Output format specification (3 numbered insights)
+    // 8. Focus areas (8 specific recommendation types)
+    //
+    // This rich context enables the AI to generate truly personalized,
+    // actionable insights rather than generic farming advice.
     const systemPrompt = `You are an AI farming advisor for shambaXchange, an app for East African farmers. 
 Generate 3 personalized, actionable insights based on the farmer's comprehensive data.
 Be specific, practical, and culturally relevant. Use actual market prices, financial data, and weather conditions in your recommendations.
@@ -289,47 +305,108 @@ Focus on:
 - Market opportunities (when to sell, when to wait for better prices)
 - Climate risk warnings and protective measures needed now`;
 
+    // ========================================
+    // STEP 13: CALL LOVABLE AI GATEWAY
+    // ========================================
+    // Lovable AI Gateway provides access to Google Gemini models
+    // without requiring users to manage their own API keys.
+    // 
+    // Model Selection: google/gemini-2.5-flash
+    // - Balanced speed and quality
+    // - Good at multimodal + reasoning
+    // - Cost-efficient for daily insight generation
+    // 
+    // Message Structure:
+    // - System message: Contains complete context and instructions
+    // - User message: Simple trigger to generate insights
+    // 
+    // The API is OpenAI-compatible, using the same format
+    // as OpenAI's chat completions endpoint.
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`, // Auto-provisioned secret
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-flash', // Balanced performance model
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: 'Generate personalized insights for this farmer.' }
+          { role: 'system', content: systemPrompt }, // All context and instructions
+          { role: 'user', content: 'Generate personalized insights for this farmer.' } // Simple trigger
         ],
+        // Optional parameters (using defaults):
+        // - temperature: 0.7 (balanced creativity)
+        // - max_tokens: 800 (comprehensive responses)
       }),
     });
 
+    // ========================================
+    // STEP 14: HANDLE AI API RESPONSE
+    // ========================================
+    // Check for API errors (429 rate limit, 402 payment required, etc.)
     if (!response.ok) {
       const errorText = await response.text();
       console.error('AI API error:', response.status, errorText);
       throw new Error(`AI API error: ${response.status}`);
     }
 
+    // Parse the JSON response from Lovable AI Gateway
+    // Response structure matches OpenAI format:
+    // {
+    //   choices: [
+    //     {
+    //       message: {
+    //         role: 'assistant',
+    //         content: '1. Insight one...\n2. Insight two...\n3. Insight three...'
+    //       }
+    //     }
+    //   ]
+    // }
     const data = await response.json();
     const insights = data.choices[0].message.content;
 
-    // Parse insights into array
+    // ========================================
+    // STEP 15: PARSE AI RESPONSE INTO ARRAY
+    // ========================================
+    // Convert AI's numbered text format into array of strings
+    // Input: "1. Harvest Timing - Your maize...\n2. Market Opportunity - Current prices...\n3. Weather Action - Heavy rain..."
+    // Output: ["Harvest Timing - Your maize...", "Market Opportunity - Current prices...", "Weather Action - Heavy rain..."]
+    //
+    // Process:
+    // 1. Split response by newlines
+    // 2. Filter to only lines starting with "1.", "2.", "3." etc
+    // 3. Remove the number prefix and trim whitespace
     const insightsList = insights.split('\n')
-      .filter((line: string) => line.match(/^\d+\./))
-      .map((line: string) => line.replace(/^\d+\.\s*/, '').trim());
+      .filter((line: string) => line.match(/^\d+\./)) // Only numbered lines
+      .map((line: string) => line.replace(/^\d+\.\s*/, '').trim()); // Remove "1. " prefix
 
+    // ========================================
+    // STEP 16: RETURN SUCCESSFUL RESPONSE
+    // ========================================
+    // Return parsed insights array to client
+    // Include rate limit information in headers for transparency
     return new Response(JSON.stringify({ insights: insightsList }), {
       headers: { 
         ...corsHeaders, 
         'Content-Type': 'application/json',
-        'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+        'X-RateLimit-Remaining': rateLimit.remaining.toString(), // Show remaining requests
       },
     });
   } catch (error) {
+    // ========================================
+    // STEP 17: GLOBAL ERROR HANDLER
+    // ========================================
+    // Catch any errors (network failures, API errors, data issues)
+    // Log the error for debugging
     console.error('Error in ai-insights function:', error);
+    
+    // Return graceful fallback response with generic insights
+    // This ensures users always get something useful even if AI fails
+    // Status 500 indicates server error, but we still provide content
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'Unknown error',
       insights: [
+        // Fallback insights that guide users to build their profile
         'Welcome to shambaXchange! Start by adding your crops to get personalized insights.',
         'Check the weather forecast to plan your farming activities.',
         'Track your income and expenses to better understand your farm profitability.'
