@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import AIChatbot from "@/components/AIChatbot";
 import AddCropDialog from "@/components/AddCropDialog";
 import AddLedgerDialog from "@/components/AddLedgerDialog";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 interface Profile {
   full_name: string;
@@ -322,21 +323,81 @@ const Dashboard = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Learning Resources</CardTitle>
-            <CardDescription>Recommended for you</CardDescription>
+            <CardTitle>Financial Overview</CardTitle>
+            <CardDescription>Visual breakdown of your farm finances</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="p-3 border rounded-lg hover:bg-muted cursor-pointer transition-colors">
-              <p className="text-sm font-medium">Climate-Smart Farming Basics</p>
-              <p className="text-xs text-muted-foreground mt-1">15 min read</p>
-            </div>
-            <div className="p-3 border rounded-lg hover:bg-muted cursor-pointer transition-colors">
-              <p className="text-sm font-medium">Maximizing Maize Yields</p>
-              <p className="text-xs text-muted-foreground mt-1">Video • 8 min</p>
-            </div>
-            <div className="p-3 border rounded-lg hover:bg-muted cursor-pointer transition-colors">
-              <p className="text-sm font-medium">Market Timing Strategies</p>
-              <p className="text-xs text-muted-foreground mt-1">12 min read</p>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart 
+                data={[
+                  {
+                    name: 'Expenses',
+                    amount: ledgerSummary.totalExpenses,
+                    fill: 'hsl(var(--destructive))'
+                  },
+                  {
+                    name: 'Income',
+                    amount: ledgerSummary.totalIncome,
+                    fill: 'hsl(var(--success))'
+                  },
+                  {
+                    name: 'Net Profit',
+                    amount: ledgerSummary.totalIncome - ledgerSummary.totalExpenses,
+                    fill: ledgerSummary.totalIncome - ledgerSummary.totalExpenses >= 0 
+                      ? 'hsl(var(--success))' 
+                      : 'hsl(var(--destructive))'
+                  }
+                ]}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis 
+                  dataKey="name" 
+                  className="text-xs"
+                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                />
+                <YAxis 
+                  className="text-xs"
+                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+                />
+                <Tooltip 
+                  formatter={(value: number) => `KES ${value.toLocaleString()}`}
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--background))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Bar 
+                  dataKey="amount" 
+                  radius={[8, 8, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="mt-4 grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-xs text-muted-foreground">Expenses</p>
+                <p className="text-sm font-bold text-destructive">
+                  KES {ledgerSummary.totalExpenses.toLocaleString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Income</p>
+                <p className="text-sm font-bold text-success">
+                  KES {ledgerSummary.totalIncome.toLocaleString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Net Profit</p>
+                <p className={`text-sm font-bold ${
+                  ledgerSummary.totalIncome - ledgerSummary.totalExpenses >= 0 
+                    ? "text-success" 
+                    : "text-destructive"
+                }`}>
+                  KES {(ledgerSummary.totalIncome - ledgerSummary.totalExpenses).toLocaleString()}
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
