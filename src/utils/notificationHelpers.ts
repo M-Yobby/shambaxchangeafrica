@@ -30,25 +30,30 @@ interface CreateNotificationParams {
 }
 
 /**
- * Create Notification
+ * Creates a notification in the database for a specific user.
  * 
- * Generic function to insert a notification into the database.
- * Notifications are delivered via:
- * 1. In-app notification center (NotificationCenter component)
- * 2. Browser push notifications (if user has granted permission)
- * 3. Realtime updates (Supabase Realtime subscription)
+ * This is the core function for all notification creation. It inserts a new
+ * notification record into the database with the specified details.
  * 
- * @param {CreateNotificationParams} params - Notification configuration
+ * @param {CreateNotificationParams} params - Notification creation parameters
  * @returns {Promise<boolean>} True if notification created successfully, false otherwise
  * 
  * @example
- * await createNotification({
+ * ```tsx
+ * const success = await createNotification({
  *   userId: 'user-123',
  *   type: 'order',
- *   title: 'New Order!',
- *   message: 'You have a new order for 50kg maize',
- *   data: { orderId: 'order-456', cropName: 'Maize' }
+ *   title: 'New Order',
+ *   message: 'You received an order for 50kg of Maize',
+ *   data: { orderId: 'order-456', crop: 'Maize', quantity: 50 }
  * });
+ * ```
+ * 
+ * @remarks
+ * - Notifications are stored in the `notifications` table
+ * - All notifications start as unread (read: false)
+ * - Additional data can be stored in the `data` JSONB field
+ * - Errors are logged but don't throw (fail silently)
  */
 export const createNotification = async ({
   userId,
@@ -81,18 +86,29 @@ export const createNotification = async ({
 };
 
 /**
- * Notification Templates
+ * Pre-built notification templates for common scenarios.
  * 
- * Pre-built notification templates for common platform events.
- * These templates ensure consistent messaging and make it easy to send
- * notifications throughout the app without duplicating notification text.
+ * These templates provide consistent, user-friendly notification messages
+ * for various platform events. Each template returns an object with
+ * title, message, and type properties ready for use with createNotification.
  * 
- * Each template returns an object with title, message, and type properties
- * that can be directly passed to createNotification().
+ * @example
+ * ```tsx
+ * // Send a new order notification
+ * const orderNotif = NotificationTemplates.newOrder('John Doe', 'Tomatoes', 25);
+ * await createNotification({
+ *   userId: sellerId,
+ *   ...orderNotif,
+ *   data: { orderId: order.id }
+ * });
  * 
- * Usage Example:
- * const notif = NotificationTemplates.newOrder('John Doe', 'Maize');
- * await createNotification({ userId: sellerId, ...notif });
+ * // Send a price alert
+ * const priceAlert = NotificationTemplates.priceAlert('Maize', 45, 55);
+ * await createNotification({
+ *   userId: farmerId,
+ *   ...priceAlert
+ * });
+ * ```
  */
 export const NotificationTemplates = {
   /**

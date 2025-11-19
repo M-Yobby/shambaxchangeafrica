@@ -12,6 +12,43 @@ const DEFAULT_CROPS = [
   "Carrots",
 ];
 
+/**
+ * Custom hook to fetch and manage popular crops dynamically from the database.
+ * 
+ * Retrieves crops that are frequently used across the platform (appearing in user
+ * crops or marketplace listings). The list automatically updates in real-time when
+ * farmers add new crops or create marketplace listings, thanks to Realtime subscriptions.
+ * 
+ * @returns {Object} An object containing:
+ *   - `crops` {string[]} - Array of crop names (default crops + popular crops from DB)
+ *   - `loading` {boolean} - True while initial fetch is in progress
+ * 
+ * @example
+ * ```tsx
+ * function CropSelector() {
+ *   const { crops, loading } = usePopularCrops();
+ *   
+ *   if (loading) return <div>Loading crops...</div>;
+ *   
+ *   return (
+ *     <select>
+ *       {crops.map(crop => (
+ *         <option key={crop} value={crop}>{crop}</option>
+ *       ))}
+ *     </select>
+ *   );
+ * }
+ * ```
+ * 
+ * @remarks
+ * - Always includes default crops (Maize, Beans, Tomatoes, etc.)
+ * - Merges popular crops from database with defaults, removing duplicates
+ * - Sorts final list alphabetically
+ * - Uses Realtime subscriptions to both `crops` and `marketplace_listings` tables
+ * - Automatically capitalizes crop names from database
+ * - Falls back to default crops if database fetch fails
+ * - Cleans up Realtime subscriptions on unmount
+ */
 export const usePopularCrops = () => {
   const [crops, setCrops] = useState<string[]>(DEFAULT_CROPS);
   const [loading, setLoading] = useState(true);
