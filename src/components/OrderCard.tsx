@@ -1,3 +1,52 @@
+/**
+ * ORDER CARD
+ * 
+ * Displays order details with status-based actions for managing transactions.
+ * Different UI and actions shown based on user role (buyer vs seller) and order status.
+ * 
+ * ORDER STATUS FLOW:
+ * 
+ * BUYER PERSPECTIVE:
+ * 1. requested → Waiting for seller to confirm
+ * 2. confirmed → Seller preparing order, waiting for shipment
+ * 3. in-transit → Order shipped, tracking delivery
+ * 4. delivered → Mark as received → completed
+ * 5. completed → Leave review (ReviewDialog)
+ * 
+ * SELLER PERSPECTIVE:
+ * 1. requested → Confirm order OR Cancel
+ * 2. confirmed → Mark as shipped (in-transit)
+ * 3. in-transit → Waiting for buyer to receive
+ * 4. delivered → Waiting for buyer to complete
+ * 5. completed → Transaction finished
+ * 
+ * STATUS ACTIONS BY ROLE:
+ * 
+ * Seller Actions:
+ * - requested: "Confirm Order" (→ confirmed) or "Cancel Order" (→ cancelled)
+ * - confirmed: "Mark as Shipped" (→ in-transit)
+ * - in-transit/delivered/completed: No actions (buyer-driven)
+ * 
+ * Buyer Actions:
+ * - requested/confirmed/in-transit: "Cancel Order" (→ cancelled)
+ * - delivered: "Mark as Received" (→ completed)
+ * - completed: "Leave Review" (opens ReviewDialog)
+ * 
+ * KEY FEATURES:
+ * - Status-based color coding and icons
+ * - Role-specific action buttons
+ * - Real-time status updates (visible to both parties)
+ * - Direct messaging button (opens MessagingDialog)
+ * - Points awarded on completion (50 for seller, 25 for buyer)
+ * - Review system for completed orders
+ * 
+ * DATABASE OPERATIONS:
+ * - Updates: order status via PATCH
+ * - Inserts: notifications for status changes
+ * - Calls: award_points() on completion
+ * - Inserts: reviews via ReviewDialog
+ */
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,9 +87,9 @@ interface Order {
 
 interface OrderCardProps {
   order: Order;
-  userRole: "buyer" | "seller";
-  onStatusChange?: () => void;
-  onMessageClick?: () => void;
+  userRole: "buyer" | "seller"; // Determines which actions to show
+  onStatusChange?: () => void; // Callback to refresh order list
+  onMessageClick?: () => void; // Opens messaging dialog
 }
 
 export const OrderCard = ({
@@ -91,9 +140,41 @@ export const OrderCard = ({
     }
   };
 
+  /**
+   * UPDATE ORDER STATUS
+   * Changes order status and notifies the other party
+   * 
+   * PROCESS:
+   * 1. Update order status in database
+   * 2. Create notification for other party (buyer or seller)
+   * 3. If status is "completed", award points to both parties:
+   *    - Seller: 50 points for completing sale
+   *    - Buyer: 25 points for completing purchase
+   * 4. Show success toast
+   * 5. Trigger parent refresh to update order list
+   * 
+   * COMMON STATUS TRANSITIONS:
+   * - requested → confirmed (seller confirms)
+   * - confirmed → in-transit (seller ships)
+   * - delivered → completed (buyer receives)
+   * - any → cancelled (either party cancels)
+   * 
+   * NOTIFICATIONS:
+   * - Sent to the opposite party in transaction
+   * - Includes order context for quick reference
+   * - Enables real-time order tracking for both users
+   * 
+   * POINTS SYSTEM:
+   * - Only awarded on "completed" status
+   * - Seller gets 50 points (larger reward for successful sale)
+   * - Buyer gets 25 points (reward for marketplace participation)
+   * - Encourages transaction completion and platform engagement
+   */
   const updateOrderStatus = async (newStatus: string) => {
     try {
       setLoading(true);
+      
+      // Step 1: Update order status in database
       const { error } = await supabase
         .from("orders")
         .update({ status: newStatus })
@@ -101,24 +182,28 @@ export const OrderCard = ({
 
       if (error) throw error;
 
-      // Notify the other party
+      // Step 2: Notify the other party about status change
+      // Buyer notifications go to seller, seller notifications go to buyer
       const recipientId = userRole === "seller" ? order.buyer_id : order.seller_id;
       await supabase.from("notifications").insert({
         user_id: recipientId,
         type: "order",
         title: "Order Status Updated",
         message: `Order status changed to ${newStatus}`,
-        data: { order_id: order.id },
+        data: { order_id: order.id }, // Context for notification
       });
 
-      // Award points for completing order
+      // Step 3: Award points if order completed
+      // Completion means successful transaction from creation to delivery
       if (newStatus === "completed") {
+        // Seller reward: 50 points for successful sale
         await supabase.rpc("award_points", {
           p_user_id: order.seller_id,
           p_points: 50,
           p_action: "completing a sale",
         });
 
+        // Buyer reward: 25 points for completing purchase
         await supabase.rpc("award_points", {
           p_user_id: order.buyer_id,
           p_points: 25,
@@ -126,6 +211,7 @@ export const OrderCard = ({
         });
       }
 
+      // Step 4: Show success feedback
       toast({
         title: "Success",
         description: `Order status updated to ${newStatus}`,
