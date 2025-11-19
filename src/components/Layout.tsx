@@ -132,7 +132,7 @@ const Layout = ({ children }: LayoutProps) => {
       <NotificationPermissionPrompt />
 
       <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-card shadow-lg z-50">
-        <div className="grid grid-cols-6 gap-1 p-2">
+        <div className="grid grid-cols-4 gap-1 p-2">
           {navItems.map((item) => (
             <Link key={item.path} to={item.path}>
               <Button
