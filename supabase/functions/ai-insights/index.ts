@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.80.0';
+import { checkRateLimit, getClientIdentifier, createRateLimitResponse, RATE_LIMITS } from "../_shared/rateLimiter.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,6 +33,15 @@ serve(async (req) => {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Rate limiting check - use user ID for authenticated requests
+    const identifier = getClientIdentifier(req, user.id);
+    const rateLimit = checkRateLimit(identifier, RATE_LIMITS.AI);
+    
+    if (rateLimit.isLimited) {
+      console.log(`AI insights rate limit exceeded for user ${user.id}`);
+      return createRateLimitResponse(rateLimit.remaining, rateLimit.resetTime);
     }
 
     // Fetch user data
@@ -112,7 +122,11 @@ Focus on: crop care timing, market opportunities, financial optimization, weathe
       .map((line: string) => line.replace(/^\d+\.\s*/, '').trim());
 
     return new Response(JSON.stringify({ insights: insightsList }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'application/json',
+        'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+      },
     });
   } catch (error) {
     console.error('Error in ai-insights function:', error);

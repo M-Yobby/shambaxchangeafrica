@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { checkRateLimit, getClientIdentifier, createRateLimitResponse, RATE_LIMITS } from "../_shared/rateLimiter.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,6 +13,15 @@ serve(async (req) => {
   }
 
   try {
+    // Rate limiting check - stricter for AI endpoints
+    const identifier = getClientIdentifier(req);
+    const rateLimit = checkRateLimit(identifier, RATE_LIMITS.AI);
+    
+    if (rateLimit.isLimited) {
+      console.log(`AI chat rate limit exceeded for ${identifier}`);
+      return createRateLimitResponse(rateLimit.remaining, rateLimit.resetTime);
+    }
+
     const { message } = await req.json();
     const HUGGING_FACE_ACCESS_TOKEN = Deno.env.get('HUGGING_FACE_ACCESS_TOKEN');
 
@@ -61,7 +71,13 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ response: aiResponse }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+        } 
+      }
     );
   } catch (error) {
     console.error('AI chat error:', error);

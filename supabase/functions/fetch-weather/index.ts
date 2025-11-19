@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { checkRateLimit, getClientIdentifier, createRateLimitResponse, RATE_LIMITS } from "../_shared/rateLimiter.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,6 +13,15 @@ serve(async (req) => {
   }
 
   try {
+    // Rate limiting check
+    const identifier = getClientIdentifier(req);
+    const rateLimit = checkRateLimit(identifier, RATE_LIMITS.API);
+    
+    if (rateLimit.isLimited) {
+      console.log(`Rate limit exceeded for ${identifier}`);
+      return createRateLimitResponse(rateLimit.remaining, rateLimit.resetTime);
+    }
+
     const { location } = await req.json();
     const OPENWEATHER_API_KEY = Deno.env.get('OPENWEATHER_API_KEY');
 
@@ -42,7 +52,13 @@ serve(async (req) => {
         description: data.weather[0].description,
         windSpeed: data.wind.speed,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+        } 
+      }
     );
   } catch (error) {
     console.error('Weather fetch error:', error);
