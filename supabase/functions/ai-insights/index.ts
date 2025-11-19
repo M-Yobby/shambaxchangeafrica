@@ -1,19 +1,106 @@
+/**
+ * AI INSIGHTS EDGE FUNCTION
+ * 
+ * Generates personalized, actionable farming recommendations using AI.
+ * The brain of shambaXchange - transforms raw data into intelligent guidance.
+ * 
+ * PURPOSE:
+ * Creates daily AI-powered insights tailored to each farmer including:
+ * - Harvest date predictions based on planting dates and crop cycles
+ * - Yield estimates using acreage and expected yields
+ * - Optimal selling times based on market price trends
+ * - Weather-based action recommendations
+ * - Financial advice comparing income vs expenses
+ * - Risk alerts for weather threats
+ * - Time-sensitive actions ("Plant now", "Harvest this week")
+ * 
+ * DATA SOURCES:
+ * 1. User Profile (location, farm size)
+ * 2. Crop Dashboard (plantings, acreage, dates)
+ * 3. Financial Ledger (income, expenses, transactions)
+ * 4. Weather API (current conditions, forecasts)
+ * 5. Market Prices (current rates, trends)
+ * 
+ * AI INTEGRATION:
+ * - Uses Lovable AI Gateway (Google Gemini 2.5 Flash)
+ * - Model: google/gemini-2.5-flash (balanced speed/quality)
+ * - Max tokens: 800 (comprehensive responses)
+ * - Temperature: 0.7 (factual with some creativity)
+ * 
+ * PERSONALIZATION STRATEGY:
+ * Insights are NOT generic templates. AI analyzes:
+ * - Specific crops user is growing
+ * - Current weather in user's location
+ * - User's financial performance
+ * - Market conditions for user's crops
+ * - Time since planting (crop maturity)
+ * 
+ * INSIGHT CATEGORIES:
+ * 1. Harvest Timing - When to harvest for best yield
+ * 2. Market Opportunities - When prices favor selling
+ * 3. Weather Actions - Urgent weather-based tasks
+ * 4. Financial Optimization - Cost reduction opportunities
+ * 5. Risk Warnings - Threats to crops or profits
+ * 
+ * RATE LIMITING:
+ * - 20 requests per minute per user (RATE_LIMITS.AI)
+ * - Prevents excessive AI API costs
+ * - Balanced for daily insight checks
+ * 
+ * SECURITY:
+ * - Authentication required (JWT token)
+ * - User can only get insights for their own data
+ * - Service role key for data fetching
+ * - Rate limiting by authenticated user ID
+ * 
+ * ERROR HANDLING:
+ * - Authentication validation
+ * - API key verification
+ * - Lovable AI error capture and logging
+ * - Graceful fallbacks for missing data
+ * 
+ * CALLED BY:
+ * - Dashboard component on mount
+ * - User clicks refresh button
+ * - Daily automated insight generation
+ * 
+ * REQUEST FORMAT:
+ * POST /functions/v1/ai-insights
+ * Headers: { Authorization: "Bearer <jwt_token>" }
+ * (No body required - uses authenticated user's data)
+ * 
+ * RESPONSE FORMAT:
+ * {
+ *   insights: "Personalized AI-generated recommendations..."
+ * }
+ */
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.80.0';
 import { checkRateLimit, getClientIdentifier, createRateLimitResponse, RATE_LIMITS } from "../_shared/rateLimiter.ts";
 
+// CORS headers - allows web browser access to edge function
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+/**
+ * MAIN REQUEST HANDLER
+ * Generates personalized AI insights by analyzing farmer's complete data profile
+ */
 serve(async (req) => {
+  // Handle CORS preflight requests (browser pre-check before actual request)
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // ========================================
+    // STEP 1: VALIDATE ENVIRONMENT
+    // ========================================
+    // Ensure all required secrets are configured
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -22,20 +109,34 @@ serve(async (req) => {
       throw new Error('Missing required environment variables');
     }
 
+    // ========================================
+    // STEP 2: INITIALIZE SUPABASE CLIENT
+    // ========================================
+    // Use service role key for admin access to fetch user data
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // ========================================
+    // STEP 3: AUTHENTICATE USER
+    // ========================================
+    // Extract JWT token from Authorization header
+    // Validate token and get user information
     const authHeader = req.headers.get('Authorization')!;
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
+      // Invalid or expired token
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Rate limiting check - use user ID for authenticated requests
+    // ========================================
+    // STEP 4: RATE LIMITING
+    // ========================================
+    // Use authenticated user ID for accurate rate limiting
+    // AI endpoints limited to 20 requests per minute per user
     const identifier = getClientIdentifier(req, user.id);
     const rateLimit = checkRateLimit(identifier, RATE_LIMITS.AI);
     
@@ -44,48 +145,76 @@ serve(async (req) => {
       return createRateLimitResponse(rateLimit.remaining, rateLimit.resetTime);
     }
 
-    // Fetch user data
+    // ========================================
+    // STEP 5: FETCH USER PROFILE DATA
+    // ========================================
+    // Get farmer's location, farm size, and other profile details
     const { data: profile } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .single();
 
+    // ========================================
+    // STEP 6: FETCH ACTIVE CROPS
+    // ========================================
+    // Get all crops currently being grown
+    // Used for: harvest predictions, market matching, yield estimates
     const { data: crops } = await supabase
       .from('crops')
       .select('*')
       .eq('user_id', user.id)
-      .eq('status', 'active');
+      .eq('status', 'active'); // Only active crops matter for insights
 
+    // ========================================
+    // STEP 7: FETCH RECENT FINANCIAL TRANSACTIONS
+    // ========================================
+    // Get last 10 ledger entries for financial analysis
+    // Used for: profit/loss analysis, spending patterns, ROI calculations
     const { data: ledger } = await supabase
       .from('ledger')
       .select('*')
       .eq('user_id', user.id)
-      .order('date', { ascending: false })
-      .limit(10);
+      .order('date', { ascending: false }) // Most recent first
+      .limit(10); // Only need recent history
 
-    // Fetch weather data for user's location
+    // ========================================
+    // STEP 8: FETCH CURRENT WEATHER
+    // ========================================
+    // Call weather edge function for user's location
+    // Used for: weather-based recommendations, risk alerts
     const { data: weatherData, error: weatherError } = await supabase.functions.invoke('fetch-weather', {
       body: { location: profile?.location || 'Kenya' }
     });
 
-    // Fetch market prices for user's crops
+    // ========================================
+    // STEP 9: FETCH MARKET PRICES FOR USER'S CROPS
+    // ========================================
+    // Get current market prices for crops user is growing
+    // Used for: optimal selling time recommendations, profit projections
     const cropNames = crops?.map(c => c.crop_name) || [];
     const { data: marketPrices } = cropNames.length > 0 ? await supabase
       .from('market_prices')
       .select('*')
-      .in('crop_name', cropNames)
-      .eq('region', profile?.location || 'Kenya')
-      .order('recorded_at', { ascending: false })
+      .in('crop_name', cropNames) // Only prices for user's crops
+      .eq('region', profile?.location || 'Kenya') // User's regional market
+      .order('recorded_at', { ascending: false }) // Latest prices first
       .limit(10) : { data: [] };
 
-    // Calculate financial summary from ledger
+    // ========================================
+    // STEP 10: CALCULATE FINANCIAL SUMMARY
+    // ========================================
+    // Aggregate income and expenses for profit/loss analysis
     const totalIncome = ledger?.filter(l => l.type === 'income')
       .reduce((sum, l) => sum + Number(l.amount), 0) || 0;
     const totalExpense = ledger?.filter(l => l.type === 'expense')
       .reduce((sum, l) => sum + Number(l.amount), 0) || 0;
 
-    // Build context for AI
+    // ========================================
+    // STEP 11: BUILD AI CONTEXT OBJECT
+    // ========================================
+    // Aggregate all fetched data into structured context for AI
+    // This complete profile enables truly personalized insights
     const context = {
       location: profile?.location || 'Kenya',
       farmSize: profile?.farm_size || 0,
