@@ -1,3 +1,20 @@
+/**
+ * NotificationCenter Component
+ * 
+ * Displays a bell icon with badge showing unread notification count.
+ * Clicking opens a dropdown showing recent notifications with ability to:
+ * - Mark individual notifications as read
+ * - Mark all notifications as read
+ * - View notification details
+ * 
+ * Features:
+ * - Realtime updates via Supabase Realtime subscription
+ * - Browser push notifications when new notifications arrive
+ * - Auto-refresh notification list on new insertions
+ * - Icon-based notification categorization
+ * - Scrollable notification list (last 10)
+ */
+
 import { useState, useEffect } from "react";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,37 +29,46 @@ import { supabase } from "@/integrations/supabase/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNotifications } from "@/hooks/useNotifications";
 
+// Notification data structure from database
 interface Notification {
   id: string;
-  type: string;
-  title: string;
-  message: string;
-  read: boolean;
-  created_at: string;
+  type: string;      // Notification category (order, message, system, etc.)
+  title: string;     // Notification heading
+  message: string;   // Notification body text
+  read: boolean;     // Read/unread status
+  created_at: string; // Timestamp
 }
 
 export const NotificationCenter = () => {
+  // State management
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const { showNotification, permission } = useNotifications();
 
+  /**
+   * Initialization Effect
+   * Sets up notification fetching and realtime subscription on component mount
+   */
   useEffect(() => {
+    // Fetch initial notifications
     fetchNotifications();
     
-    // Set up realtime subscription
+    // Set up Supabase Realtime subscription for instant updates
+    // Listens for new notification insertions and triggers browser notifications
     const channel = supabase
       .channel('notifications-changes')
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: 'INSERT',              // Listen for new notifications
           schema: 'public',
           table: 'notifications'
         },
         async (payload) => {
+          // Refresh notification list when new notification arrives
           await fetchNotifications();
           
-          // Show browser notification if permission is granted
+          // Show browser push notification if user has granted permission
           if (permission === 'granted') {
             const newNotif = payload.new as Notification;
             showNotification(newNotif.title, {
@@ -55,6 +81,7 @@ export const NotificationCenter = () => {
       )
       .subscribe();
 
+    // Cleanup: unsubscribe from realtime channel on component unmount
     return () => {
       supabase.removeChannel(channel);
     };
