@@ -256,35 +256,6 @@ const MarketIntel = () => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>AI Recommendations</CardTitle>
-          <CardDescription>Personalized market insights for your farm</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="p-4 bg-primary/10 rounded-lg border-l-4 border-primary">
-            <p className="font-medium mb-1">Best Planting Opportunity</p>
-            <p className="text-sm text-muted-foreground">
-              Tomatoes show strong demand in Nakuru with 12% price increase. Consider planting 
-              if you have available land - harvest timing aligns with peak demand season.
-            </p>
-          </div>
-          <div className="p-4 bg-secondary/10 rounded-lg border-l-4 border-secondary">
-            <p className="font-medium mb-1">Selling Strategy</p>
-            <p className="text-sm text-muted-foreground">
-              Cabbage prices are rising. If you have ready stock, Nyeri market offers the 
-              best rates (KES 82/kg avg) and high demand.
-            </p>
-          </div>
-          <div className="p-4 bg-accent/10 rounded-lg border-l-4 border-accent">
-            <p className="font-medium mb-1">Price Alert</p>
-            <p className="text-sm text-muted-foreground">
-              Maize prices showing slight decline. Consider holding stock for 2-3 weeks 
-              as seasonal patterns suggest recovery.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };
