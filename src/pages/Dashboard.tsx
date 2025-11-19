@@ -399,6 +399,14 @@ const Dashboard = () => {
                 </p>
               </div>
             </div>
+            <Button 
+              variant="outline" 
+              className="w-full mt-4"
+              onClick={() => navigate("/finances")}
+            >
+              <Calculator className="w-4 h-4 mr-2" />
+              View Detailed Breakdown
+            </Button>
           </CardContent>
         </Card>
       </div>
