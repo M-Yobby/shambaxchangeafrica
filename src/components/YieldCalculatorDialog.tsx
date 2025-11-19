@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calculator } from "lucide-react";
+import { Calculator, TrendingUp } from "lucide-react";
 
 const CROP_YIELD_DATA: Record<string, { avgYield: number; unit: string; growthPeriod: number }> = {
   maize: { avgYield: 2500, unit: "kg/acre", growthPeriod: 120 },
@@ -27,6 +28,59 @@ export default function YieldCalculatorDialog({ open, onOpenChange }: YieldCalcu
   const [acreage, setAcreage] = useState("");
   const [expectedYield, setExpectedYield] = useState<number | null>(null);
   const [estimatedHarvest, setEstimatedHarvest] = useState<string>("");
+  const [marketPrice, setMarketPrice] = useState<number | null>(null);
+  const [userLocation, setUserLocation] = useState<string>("Kenya");
+
+  useEffect(() => {
+    const fetchUserLocation = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("location")
+          .eq("id", user.id)
+          .single();
+        
+        if (profile?.location) {
+          setUserLocation(profile.location);
+        }
+      }
+    };
+
+    if (open) {
+      fetchUserLocation();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    const fetchMarketPrice = async () => {
+      if (!selectedCrop) {
+        setMarketPrice(null);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("market_prices")
+          .select("price_per_kg")
+          .eq("crop_name", selectedCrop.charAt(0).toUpperCase() + selectedCrop.slice(1))
+          .eq("region", userLocation)
+          .order("recorded_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setMarketPrice(data.price_per_kg);
+        }
+      } catch (error) {
+        console.error("Error fetching market price:", error);
+        setMarketPrice(null);
+      }
+    };
+
+    fetchMarketPrice();
+  }, [selectedCrop, userLocation]);
 
   const calculateYield = () => {
     if (selectedCrop && acreage) {
@@ -52,6 +106,7 @@ export default function YieldCalculatorDialog({ open, onOpenChange }: YieldCalcu
     setAcreage("");
     setExpectedYield(null);
     setEstimatedHarvest("");
+    setMarketPrice(null);
   };
 
   const handleClose = () => {
@@ -133,6 +188,29 @@ export default function YieldCalculatorDialog({ open, onOpenChange }: YieldCalcu
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
                     ~{CROP_YIELD_DATA[selectedCrop].growthPeriod} days from planting
+                  </p>
+                </div>
+              )}
+
+              {marketPrice && expectedYield && (
+                <div className="p-4 bg-success/10 rounded-lg border-l-4 border-success">
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                    <TrendingUp className="w-4 h-4" />
+                    Potential Revenue
+                  </p>
+                  <p className="text-3xl font-bold text-success mt-1">
+                    KES {(marketPrice * expectedYield).toLocaleString()}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Based on current market price: KES {marketPrice}/kg in {userLocation}
+                  </p>
+                </div>
+              )}
+
+              {!marketPrice && expectedYield && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    Market price data not available for {selectedCrop} in {userLocation}
                   </p>
                 </div>
               )}
