@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Flame, Star, TrendingUp } from "lucide-react";
+import { Flame, Star, TrendingUp, Award } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface UserStats {
   streak_days: number;
   total_points: number;
   level: number;
   badges: any;
+  streak_milestones: any;
+  featured_until: string | null;
 }
 
 export const UserStatsDisplay = () => {
@@ -54,17 +57,28 @@ export const UserStatsDisplay = () => {
             streak_days: newStats.streak_days,
             total_points: newStats.total_points,
             level: newStats.level,
-            badges: newStats.badges
+            badges: newStats.badges,
+            streak_milestones: newStats.streak_milestones || [],
+            featured_until: newStats.featured_until
           });
         } else {
-          setStats({ streak_days: 1, total_points: 0, level: 1, badges: [] });
+          setStats({ 
+            streak_days: 1, 
+            total_points: 0, 
+            level: 1, 
+            badges: [],
+            streak_milestones: [],
+            featured_until: null
+          });
         }
       } else {
         setStats({
           streak_days: data.streak_days,
           total_points: data.total_points,
           level: data.level,
-          badges: data.badges
+          badges: data.badges,
+          streak_milestones: data.streak_milestones || [],
+          featured_until: data.featured_until
         });
       }
     } catch (error) {
@@ -96,13 +110,57 @@ export const UserStatsDisplay = () => {
     );
   }
 
+  const getStreakBadgeColor = () => {
+    const milestones = Array.isArray(stats.streak_milestones) ? stats.streak_milestones : [];
+    if (milestones.includes('90_day')) return 'text-purple-500';
+    if (milestones.includes('30_day')) return 'text-blue-500';
+    if (milestones.includes('7_day')) return 'text-orange-500';
+    return 'text-orange-400';
+  };
+
+  const getStreakTooltip = () => {
+    const milestones = Array.isArray(stats.streak_milestones) ? stats.streak_milestones : [];
+    const achievedMilestones = [];
+    if (milestones.includes('7_day')) achievedMilestones.push('Week Warrior 🔥');
+    if (milestones.includes('30_day')) achievedMilestones.push('Month Master 🌟');
+    if (milestones.includes('90_day')) achievedMilestones.push('Dedicated Farmer 💎');
+    
+    if (achievedMilestones.length === 0) {
+      const nextMilestone = stats.streak_days < 7 ? 7 : stats.streak_days < 30 ? 30 : 90;
+      const daysRemaining = nextMilestone - stats.streak_days;
+      return `${daysRemaining} more day${daysRemaining !== 1 ? 's' : ''} to ${nextMilestone}-day milestone!`;
+    }
+    
+    return achievedMilestones.join(' • ');
+  };
+
+  const isFeatured = stats.featured_until && new Date(stats.featured_until) > new Date();
+  const milestones = Array.isArray(stats.streak_milestones) ? stats.streak_milestones : [];
+
   return (
     <div className="flex items-center gap-3 flex-wrap">
-      <Badge variant="secondary" className="flex items-center gap-1.5 px-3 py-1.5">
-        <Flame className="h-4 w-4 text-orange-500" />
-        <span className="font-semibold">{stats.streak_days}</span>
-        <span className="text-xs text-muted-foreground">day streak</span>
-      </Badge>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge 
+              variant="secondary" 
+              className={`flex items-center gap-1.5 px-3 py-1.5 ${
+                milestones.length > 0 ? 'ring-2 ring-offset-1 ring-orange-500/50' : ''
+              }`}
+            >
+              <Flame className={`h-4 w-4 ${getStreakBadgeColor()}`} />
+              <span className="font-semibold">{stats.streak_days}</span>
+              <span className="text-xs text-muted-foreground">day streak</span>
+              {milestones.length > 0 && (
+                <Award className="h-3 w-3 ml-1 text-yellow-500" />
+              )}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{getStreakTooltip()}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       
       <Badge variant="secondary" className="flex items-center gap-1.5 px-3 py-1.5">
         <Star className="h-4 w-4 text-yellow-500" />
@@ -114,6 +172,25 @@ export const UserStatsDisplay = () => {
         <TrendingUp className="h-4 w-4 text-green-500" />
         <span className="font-semibold">Level {stats.level}</span>
       </Badge>
+
+      {isFeatured && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge 
+                variant="default" 
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-purple-500"
+              >
+                <Star className="h-4 w-4 fill-current" />
+                <span className="font-semibold">Featured</span>
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Your profile is featured until {new Date(stats.featured_until).toLocaleDateString()}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
     </div>
   );
 };
