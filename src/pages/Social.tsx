@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import CommentSection from "@/components/CommentSection";
 import { useCompleteReferral } from "@/hooks/useCompleteReferral";
+import { validateAndSanitizePost, sanitizeContent } from "@/utils/contentValidation";
+import DOMPurify from "dompurify";
 
 interface Post {
   id: string;
@@ -149,6 +151,17 @@ const Social = () => {
   const handlePost = async () => {
     if (!postContent.trim() && !mediaFile) return;
 
+    // Validate and sanitize post content
+    const validation = validateAndSanitizePost(postContent);
+    if (!validation.success) {
+      toast({
+        title: "Validation Error",
+        description: validation.error,
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
@@ -172,7 +185,7 @@ const Social = () => {
       }
 
       const { error } = await supabase.from("posts").insert({
-        content: postContent,
+        content: validation.sanitized,
         user_id: user.id,
         media_url: mediaUrl,
       });
@@ -302,7 +315,7 @@ const Social = () => {
                     value={postContent}
                     onChange={(e) => setPostContent(e.target.value)}
                     className="min-h-[100px] resize-none"
-                    maxLength={300}
+                    maxLength={2000}
                   />
                   {mediaPreview && (
                     <div className="relative mt-2">
@@ -339,7 +352,7 @@ const Social = () => {
                         Photo
                       </Button>
                       <span className="text-xs text-muted-foreground">
-                        {postContent.length}/300
+                        {postContent.length}/2000
                       </span>
                     </div>
                     <Button onClick={handlePost} disabled={!postContent.trim() && !mediaFile}>
@@ -382,7 +395,10 @@ const Social = () => {
                             </p>
                           </div>
                         </div>
-                        <p className="text-sm mb-2 whitespace-pre-wrap">{post.content}</p>
+                        <div 
+                          className="text-sm mb-2 whitespace-pre-wrap"
+                          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
+                        />
                         {post.media_url && (
                           <img src={post.media_url} alt="Post media" className="rounded-lg mb-4 max-h-96 w-full object-cover" />
                         )}
@@ -452,7 +468,10 @@ const Social = () => {
                     key={post.id}
                     className="w-full text-left p-3 hover:bg-muted rounded-lg transition-colors"
                   >
-                    <p className="font-medium text-sm line-clamp-2">{post.content}</p>
+                    <div 
+                      className="font-medium text-sm line-clamp-2"
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
+                    />
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Heart className="w-3 h-3" /> {post.likes_count}
