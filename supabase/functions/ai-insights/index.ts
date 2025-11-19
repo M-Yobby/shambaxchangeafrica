@@ -64,33 +64,81 @@ serve(async (req) => {
       .order('date', { ascending: false })
       .limit(10);
 
+    // Fetch market prices for user's crops
+    const cropNames = crops?.map(c => c.crop_name) || [];
+    const { data: marketPrices } = cropNames.length > 0 ? await supabase
+      .from('market_prices')
+      .select('*')
+      .in('crop_name', cropNames)
+      .eq('region', profile?.location || 'Kenya')
+      .order('recorded_at', { ascending: false })
+      .limit(10) : { data: [] };
+
+    // Calculate financial summary from ledger
+    const totalIncome = ledger?.filter(l => l.type === 'income')
+      .reduce((sum, l) => sum + Number(l.amount), 0) || 0;
+    const totalExpense = ledger?.filter(l => l.type === 'expense')
+      .reduce((sum, l) => sum + Number(l.amount), 0) || 0;
+
     // Build context for AI
     const context = {
       location: profile?.location || 'Kenya',
+      farmSize: profile?.farm_size || 0,
       crops: crops?.map(c => ({
         name: c.crop_name,
         acreage: c.acreage,
         plantingDate: c.planting_date,
-        expectedYield: c.expected_yield
+        expectedYield: c.expected_yield,
+        status: c.status
       })) || [],
-      recentTransactions: ledger || []
+      marketPrices: marketPrices?.map(mp => ({
+        crop: mp.crop_name,
+        pricePerKg: mp.price_per_kg,
+        region: mp.region,
+        recordedAt: mp.recorded_at
+      })) || [],
+      financialSummary: {
+        totalIncome,
+        totalExpense,
+        netProfit: totalIncome - totalExpense,
+        transactionCount: ledger?.length || 0
+      },
+      recentTransactions: ledger?.slice(0, 5) || []
     };
 
     const systemPrompt = `You are an AI farming advisor for shambaXchange, an app for East African farmers. 
-Generate 3 personalized, actionable insights based on the farmer's data.
-Be specific, practical, and culturally relevant.
+Generate 3 personalized, actionable insights based on the farmer's comprehensive data.
+Be specific, practical, and culturally relevant. Use actual market prices and financial data in your recommendations.
 
 Farmer Profile:
 - Location: ${context.location}
-- Active Crops: ${context.crops.length ? context.crops.map(c => `${c.name} (${c.acreage} acres, planted ${c.plantingDate})`).join(', ') : 'None yet'}
-- Recent Financial Activity: ${context.recentTransactions.length} transactions
+- Farm Size: ${context.farmSize} acres
+- Active Crops: ${context.crops.length ? context.crops.map(c => `${c.name} (${c.acreage} acres, planted ${c.plantingDate}, expected yield ${c.expectedYield || 'TBD'} kg)`).join(', ') : 'None yet'}
+
+Current Market Prices in ${context.location}:
+${context.marketPrices.length > 0 ? context.marketPrices.map(mp => `- ${mp.crop}: KES ${mp.pricePerKg}/kg (as of ${new Date(mp.recordedAt).toLocaleDateString()})`).join('\n') : 'No market data available for current crops'}
+
+Financial Summary:
+- Total Income: KES ${context.financialSummary.totalIncome.toLocaleString()}
+- Total Expenses: KES ${context.financialSummary.totalExpense.toLocaleString()}
+- Net Profit: KES ${context.financialSummary.netProfit.toLocaleString()}
+- Transaction Count: ${context.financialSummary.transactionCount}
+
+Recent Transactions:
+${context.recentTransactions.map(t => `- ${t.type === 'income' ? 'Revenue' : 'Expense'}: KES ${t.amount} for ${t.item} (${new Date(t.date).toLocaleDateString()})`).join('\n')}
 
 Generate insights in the format:
-1. [Title] - [2-3 sentence actionable advice]
-2. [Title] - [2-3 sentence actionable advice]
-3. [Title] - [2-3 sentence actionable advice]
+1. [Title] - [2-3 sentence actionable advice with specific numbers when relevant]
+2. [Title] - [2-3 sentence actionable advice with specific numbers when relevant]
+3. [Title] - [2-3 sentence actionable advice with specific numbers when relevant]
 
-Focus on: crop care timing, market opportunities, financial optimization, weather preparedness, yield improvement.`;
+Focus on: 
+- Optimal selling times based on current market prices
+- Harvest date predictions and preparation advice
+- Financial optimization opportunities comparing income vs expenses
+- Cost-saving recommendations based on spending patterns
+- Yield improvement strategies specific to their crops and location
+- Market opportunities (when to sell, when to wait for better prices)`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
