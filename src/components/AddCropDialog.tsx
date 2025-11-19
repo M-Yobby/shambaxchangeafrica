@@ -1,3 +1,20 @@
+/**
+ * ADD CROP DIALOG
+ * 
+ * Form for adding crops to user's dashboard for tracking and AI recommendations.
+ * Awards points and completes referral on first crop addition.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <AddCropDialog
+ *   open={isOpen}
+ *   onOpenChange={setIsOpen}
+ *   onSuccess={refreshCrops}
+ * />
+ * ```
+ */
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -10,6 +27,13 @@ import { useCompleteReferral } from "@/hooks/useCompleteReferral";
 import { usePopularCrops } from "@/hooks/usePopularCrops";
 import { Loader2 } from "lucide-react";
 
+/**
+ * Props for the AddCropDialog component
+ * @interface AddCropDialogProps
+ * @property {boolean} open - Controls dialog visibility
+ * @property {(open: boolean) => void} onOpenChange - Callback when dialog open state changes
+ * @property {() => void} onSuccess - Callback triggered after successful crop addition
+ */
 interface AddCropDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;

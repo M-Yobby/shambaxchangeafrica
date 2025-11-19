@@ -1,9 +1,26 @@
+/**
+ * USER STATS DISPLAY
+ * 
+ * Displays user's gamification stats including streak, points, and level.
+ * Updates streak on mount and shows milestone achievements.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <UserStatsDisplay />
+ * ```
+ */
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Flame, Star, TrendingUp, Award } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+/**
+ * User statistics data structure
+ * @interface UserStats
+ */
 interface UserStats {
   streak_days: number;
   total_points: number;

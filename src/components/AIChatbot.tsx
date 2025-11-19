@@ -1,3 +1,16 @@
+/**
+ * AI CHATBOT
+ * 
+ * Floating AI assistant that answers farming and agribusiness questions.
+ * Powered by Lovable AI with agricultural expertise.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <AIChatbot />
+ * ```
+ */
+
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +20,10 @@ import { MessageCircle, Send, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+/**
+ * Chat message structure
+ * @interface Message
+ */
 interface Message {
   role: "user" | "assistant";
   content: string;

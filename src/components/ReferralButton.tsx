@@ -1,3 +1,16 @@
+/**
+ * REFERRAL BUTTON
+ * 
+ * Navigation button to the referrals page with tooltip.
+ * Displayed in the main navigation for quick access to referral features.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <ReferralButton />
+ * ```
+ */
+
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { UserPlus } from "lucide-react";

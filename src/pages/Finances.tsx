@@ -1,3 +1,16 @@
+/**
+ * FINANCES PAGE
+ * 
+ * Comprehensive financial management interface for tracking farm income and expenses.
+ * Features expense categorization, time-period comparisons, charts, and export capabilities.
+ * 
+ * @page
+ * @example
+ * ```tsx
+ * <Route path="/finances" element={<Finances />} />
+ * ```
+ */
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +25,10 @@ import AddLedgerDialog from "@/components/AddLedgerDialog";
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths, subYears } from "date-fns";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
+/**
+ * Single ledger entry data structure
+ * @interface LedgerEntry
+ */
 interface LedgerEntry {
   id: string;
   date: string;

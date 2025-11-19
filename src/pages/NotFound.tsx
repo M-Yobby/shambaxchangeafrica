@@ -1,3 +1,16 @@
+/**
+ * NOT FOUND PAGE
+ * 
+ * 404 error page displayed when user navigates to non-existent route.
+ * Logs attempted route and provides link back to home.
+ * 
+ * @page
+ * @example
+ * ```tsx
+ * <Route path="*" element={<NotFound />} />
+ * ```
+ */
+
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
 

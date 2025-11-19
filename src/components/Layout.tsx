@@ -1,3 +1,18 @@
+/**
+ * LAYOUT COMPONENT
+ * 
+ * Main application shell providing navigation, authentication, and global UI elements.
+ * Wraps all authenticated pages with header, navigation tabs, and user information.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <Layout>
+ *   <Dashboard />
+ * </Layout>
+ * ```
+ */
+
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +26,11 @@ import { UserStatsDisplay } from "./UserStatsDisplay";
 import { ReferralButton } from "./ReferralButton";
 import { NotificationPermissionPrompt } from "./NotificationPermissionPrompt";
 
+/**
+ * Props for the Layout component
+ * @interface LayoutProps
+ * @property {React.ReactNode} children - Page content to render within the layout
+ */
 interface LayoutProps {
   children: React.ReactNode;
 }

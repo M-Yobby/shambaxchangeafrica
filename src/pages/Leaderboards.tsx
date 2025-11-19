@@ -1,3 +1,16 @@
+/**
+ * LEADERBOARDS PAGE
+ * 
+ * Competitive rankings page showing top farmers by sales, points, and social engagement.
+ * Includes regional filtering and manual refresh capabilities.
+ * 
+ * @page
+ * @example
+ * ```tsx
+ * <Route path="/leaderboards" element={<Leaderboards />} />
+ * ```
+ */
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,6 +26,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+/**
+ * Leaderboard entry data structure
+ * @interface LeaderboardEntry
+ */
 interface LeaderboardEntry {
   user_id: string;
   full_name: string;

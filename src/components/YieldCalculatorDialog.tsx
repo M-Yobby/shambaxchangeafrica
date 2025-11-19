@@ -1,3 +1,19 @@
+/**
+ * YIELD CALCULATOR DIALOG
+ * 
+ * Tool for estimating crop yields based on acreage and historical averages.
+ * Provides harvest date predictions and potential revenue calculations.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <YieldCalculatorDialog
+ *   open={isOpen}
+ *   onOpenChange={setIsOpen}
+ * />
+ * ```
+ */
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";

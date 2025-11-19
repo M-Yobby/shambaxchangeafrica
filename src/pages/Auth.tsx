@@ -1,3 +1,16 @@
+/**
+ * AUTH PAGE
+ * 
+ * Authentication page with sign-up and sign-in tabs.
+ * Supports referral codes and validates input using Zod schemas.
+ * 
+ * @page
+ * @example
+ * ```tsx
+ * <Route path="/auth" element={<Auth />} />
+ * ```
+ */
+
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";

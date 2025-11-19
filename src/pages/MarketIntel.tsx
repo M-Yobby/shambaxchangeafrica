@@ -1,3 +1,16 @@
+/**
+ * MARKET INTEL PAGE
+ * 
+ * Market intelligence dashboard showing price trends, top-performing crops,
+ * and regional demand insights. Displays 6-month price history charts.
+ * 
+ * @page
+ * @example
+ * ```tsx
+ * <Route path="/market-intel" element={<MarketIntel />} />
+ * ```
+ */
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

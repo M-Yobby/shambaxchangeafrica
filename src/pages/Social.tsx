@@ -1,3 +1,17 @@
+/**
+ * SOCIAL PAGE
+ * 
+ * Social networking hub for farmers to share posts, interact with community,
+ * and view leaderboards. Features infinite scroll, media upload, pull-to-refresh,
+ * lazy-loaded media, and trending posts sidebar.
+ * 
+ * @page
+ * @example
+ * ```tsx
+ * <Route path="/social" element={<Social />} />
+ * ```
+ */
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +37,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+/**
+ * Social post data structure
+ * @interface Post
+ */
 interface Post {
   id: string;
   content: string;
@@ -38,6 +56,10 @@ interface Post {
   user_liked?: boolean;
 }
 
+/**
+ * Leaderboard entry for social rankings
+ * @interface LeaderboardEntry
+ */
 interface LeaderboardEntry {
   user_id: string;
   full_name: string;

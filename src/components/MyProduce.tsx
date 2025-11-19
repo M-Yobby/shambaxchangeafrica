@@ -1,9 +1,26 @@
+/**
+ * MY PRODUCE
+ * 
+ * Displays user's active crops with planting dates and acreage information.
+ * Used by AI for personalized farming recommendations and insights.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <MyProduce onAddClick={() => setDialogOpen(true)} />
+ * ```
+ */
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Sprout } from "lucide-react";
 
+/**
+ * Single crop data structure
+ * @interface Crop
+ */
 interface Crop {
   id: string;
   crop_name: string;
@@ -14,6 +31,11 @@ interface Crop {
   created_at: string;
 }
 
+/**
+ * Props for the MyProduce component
+ * @interface MyProduceProps
+ * @property {() => void} onAddClick - Callback when "Add Crop" button is clicked
+ */
 interface MyProduceProps {
   onAddClick: () => void;
 }
