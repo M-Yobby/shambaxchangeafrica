@@ -586,9 +586,11 @@ export type Database = {
         Row: {
           badges: Json | null
           created_at: string | null
+          featured_until: string | null
           last_login: string | null
           level: number | null
           streak_days: number | null
+          streak_milestones: Json | null
           total_points: number | null
           updated_at: string | null
           user_id: string
@@ -596,9 +598,11 @@ export type Database = {
         Insert: {
           badges?: Json | null
           created_at?: string | null
+          featured_until?: string | null
           last_login?: string | null
           level?: number | null
           streak_days?: number | null
+          streak_milestones?: Json | null
           total_points?: number | null
           updated_at?: string | null
           user_id: string
@@ -606,9 +610,11 @@ export type Database = {
         Update: {
           badges?: Json | null
           created_at?: string | null
+          featured_until?: string | null
           last_login?: string | null
           level?: number | null
           streak_days?: number | null
+          streak_milestones?: Json | null
           total_points?: number | null
           updated_at?: string | null
           user_id?: string
