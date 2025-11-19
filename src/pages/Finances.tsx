@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Download, Search, TrendingUp, TrendingDown, DollarSign, Calendar, Filter } from "lucide-react";
+import { Download, Search, TrendingUp, TrendingDown, DollarSign, Calendar, Filter, PieChart as PieChartIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AddLedgerDialog from "@/components/AddLedgerDialog";
 import { format } from "date-fns";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
 interface LedgerEntry {
   id: string;
@@ -38,6 +39,51 @@ const Finances = () => {
     totalExpenses: 0,
     netProfit: 0,
   });
+
+  // Categorize expense based on item name
+  const categorizeExpense = (item: string): string => {
+    const itemLower = item.toLowerCase();
+    
+    if (itemLower.includes('seed') || itemLower.includes('seedling')) return 'Seeds';
+    if (itemLower.includes('fertilizer') || itemLower.includes('manure') || itemLower.includes('compost')) return 'Fertilizer';
+    if (itemLower.includes('labor') || itemLower.includes('labour') || itemLower.includes('worker') || itemLower.includes('wages')) return 'Labor';
+    if (itemLower.includes('equipment') || itemLower.includes('tool') || itemLower.includes('machinery') || itemLower.includes('tractor')) return 'Equipment';
+    if (itemLower.includes('pesticide') || itemLower.includes('herbicide') || itemLower.includes('insecticide') || itemLower.includes('fungicide')) return 'Pesticides';
+    if (itemLower.includes('water') || itemLower.includes('irrigation') || itemLower.includes('pump')) return 'Irrigation';
+    if (itemLower.includes('fuel') || itemLower.includes('diesel') || itemLower.includes('petrol') || itemLower.includes('gas')) return 'Fuel';
+    if (itemLower.includes('transport') || itemLower.includes('delivery') || itemLower.includes('shipping')) return 'Transport';
+    if (itemLower.includes('rent') || itemLower.includes('lease') || itemLower.includes('land')) return 'Land & Rent';
+    if (itemLower.includes('feed') || itemLower.includes('livestock') || itemLower.includes('animal')) return 'Livestock';
+    
+    return 'Other';
+  };
+
+  // Calculate expense breakdown by category
+  const getExpenseBreakdown = () => {
+    const expenses = filteredEntries.filter(e => e.type === 'expense');
+    const categoryTotals = expenses.reduce((acc, entry) => {
+      const category = categorizeExpense(entry.item);
+      acc[category] = (acc[category] || 0) + Number(entry.amount);
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(categoryTotals)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  };
+
+  const COLORS = [
+    'hsl(var(--chart-1))',
+    'hsl(var(--chart-2))',
+    'hsl(var(--chart-3))',
+    'hsl(var(--chart-4))',
+    'hsl(var(--chart-5))',
+    'hsl(142, 76%, 36%)', // Green
+    'hsl(221, 83%, 53%)', // Blue
+    'hsl(262, 83%, 58%)', // Purple
+    'hsl(25, 95%, 53%)',  // Orange
+    'hsl(346, 87%, 43%)', // Red
+  ];
 
   useEffect(() => {
     fetchEntries();
@@ -219,6 +265,76 @@ const Finances = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Expense Category Breakdown */}
+      {filteredEntries.some(e => e.type === 'expense') && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PieChartIcon className="w-5 h-5" />
+              Expense Categories
+            </CardTitle>
+            <CardDescription>Breakdown of spending by category</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={getExpenseBreakdown()}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {getExpenseBreakdown().map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number) => `KES ${value.toLocaleString()}`}
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="space-y-3">
+                <h4 className="font-semibold text-sm mb-4">Category Details</h4>
+                {getExpenseBreakdown().map((category, index) => (
+                  <div key={category.name} className="flex items-center justify-between p-3 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-4 h-4 rounded-full" 
+                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      />
+                      <span className="font-medium text-sm">{category.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-sm">KES {category.value.toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {((category.value / summary.totalExpenses) * 100).toFixed(1)}%
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {getExpenseBreakdown().length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No expense data available
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <Card>
