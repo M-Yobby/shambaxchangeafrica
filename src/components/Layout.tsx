@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Home, TrendingUp, Store, Users, LogOut, Sprout, Trophy, ShoppingBag, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { NotificationCenter } from "./NotificationCenter";
@@ -18,6 +19,8 @@ const Layout = ({ children }: LayoutProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [pendingOrders, setPendingOrders] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -51,6 +54,65 @@ const Layout = ({ children }: LayoutProps) => {
       navigate("/", { replace: true });
     }
   }, [user, location.pathname, navigate, loading]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchNotificationCounts = async () => {
+      // Fetch unread notifications count
+      const { count: notifCount } = await supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("read", false);
+
+      setUnreadNotifications(notifCount || 0);
+
+      // Fetch pending orders count (as buyer or seller)
+      const { count: orderCount } = await supabase
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
+        .in("status", ["pending", "confirmed", "in_transit"]);
+
+      setPendingOrders(orderCount || 0);
+    };
+
+    fetchNotificationCounts();
+
+    // Subscribe to realtime updates
+    const notificationsChannel = supabase
+      .channel("notifications_count")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => fetchNotificationCounts()
+      )
+      .subscribe();
+
+    const ordersChannel = supabase
+      .channel("orders_count")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+        },
+        () => fetchNotificationCounts()
+      )
+      .subscribe();
+
+    return () => {
+      notificationsChannel.unsubscribe();
+      ordersChannel.unsubscribe();
+    };
+  }, [user]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -138,9 +200,27 @@ const Layout = ({ children }: LayoutProps) => {
               <Button
                 variant={isActive(item.path) ? "default" : "ghost"}
                 size="sm"
-                className="w-full flex-col h-auto py-2 gap-1"
+                className="w-full flex-col h-auto py-2 gap-1 relative"
               >
-                <item.icon className="w-4 h-4" />
+                <div className="relative">
+                  <item.icon className="w-4 h-4" />
+                  {item.path === "/social" && unreadNotifications > 0 && (
+                    <Badge 
+                      variant="destructive" 
+                      className="absolute -top-2 -right-2 h-4 min-w-4 px-1 text-[8px] flex items-center justify-center"
+                    >
+                      {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                    </Badge>
+                  )}
+                  {item.path === "/marketplace" && pendingOrders > 0 && (
+                    <Badge 
+                      variant="destructive" 
+                      className="absolute -top-2 -right-2 h-4 min-w-4 px-1 text-[8px] flex items-center justify-center"
+                    >
+                      {pendingOrders > 99 ? "99+" : pendingOrders}
+                    </Badge>
+                  )}
+                </div>
                 <span className="text-[9px]">{item.label}</span>
               </Button>
             </Link>
