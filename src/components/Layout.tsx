@@ -166,10 +166,26 @@ const Layout = ({ children }: LayoutProps) => {
                 <Button
                   variant={isActive(item.path) ? "default" : "ghost"}
                   size="sm"
-                  className="gap-2"
+                  className="gap-2 relative"
                 >
                   <item.icon className="w-4 h-4" />
                   {item.label}
+                  {item.path === "/social" && unreadNotifications > 0 && (
+                    <Badge 
+                      variant="destructive" 
+                      className="absolute -top-1 -right-1 h-5 min-w-5 px-1.5 text-[10px] flex items-center justify-center"
+                    >
+                      {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                    </Badge>
+                  )}
+                  {item.path === "/marketplace" && pendingOrders > 0 && (
+                    <Badge 
+                      variant="destructive" 
+                      className="absolute -top-1 -right-1 h-5 min-w-5 px-1.5 text-[10px] flex items-center justify-center"
+                    >
+                      {pendingOrders > 99 ? "99+" : pendingOrders}
+                    </Badge>
+                  )}
                 </Button>
               </Link>
             ))}
