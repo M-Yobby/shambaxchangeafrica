@@ -14,6 +14,7 @@ import { useCompleteReferral } from "@/hooks/useCompleteReferral";
 import { validateAndSanitizePost, sanitizeContent } from "@/utils/contentValidation";
 import DOMPurify from "dompurify";
 import { compressImage } from "@/utils/imageCompression";
+import { LazyMedia } from "@/components/LazyMedia";
 import {
   Select,
   SelectContent,
@@ -574,21 +575,13 @@ const Social = () => {
                           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
                         />
                         {post.media_url && (
-                          <div className="bg-muted rounded-lg mb-4">
-                            {post.media_url.includes('video') || post.media_url.match(/\.(mp4|webm|ogg)$/i) ? (
-                              <video 
-                                src={post.media_url} 
-                                controls 
-                                className="w-full max-h-[500px] rounded-lg object-contain"
-                              />
-                            ) : (
-                              <img 
-                                src={post.media_url} 
-                                alt="Post media" 
-                                className="w-full max-h-[500px] rounded-lg object-contain"
-                              />
-                            )}
-                          </div>
+                          <LazyMedia
+                            src={post.media_url}
+                            alt="Post media"
+                            isVideo={post.media_url.includes('video') || !!post.media_url.match(/\.(mp4|webm|ogg)$/i)}
+                            className="w-full max-h-[500px] rounded-lg object-contain"
+                            containerClassName="bg-muted rounded-lg mb-4"
+                          />
                         )}
                         <div className="flex items-center gap-6 text-muted-foreground">
                           <button 
