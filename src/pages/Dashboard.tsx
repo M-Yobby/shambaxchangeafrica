@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 import AIChatbot from "@/components/AIChatbot";
 import AddCropDialog from "@/components/AddCropDialog";
 import AddLedgerDialog from "@/components/AddLedgerDialog";
-import YieldCalculator from "@/components/YieldCalculator";
+import MyProduce from "@/components/MyProduce";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 interface Profile {
@@ -249,7 +249,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <YieldCalculator />
+        <MyProduce onAddClick={() => setAddCropOpen(true)} />
 
         <Card>
           <CardHeader>
