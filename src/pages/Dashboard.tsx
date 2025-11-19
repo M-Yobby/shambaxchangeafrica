@@ -138,25 +138,25 @@ const Dashboard = () => {
 
   const fetchAIInsights = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('ai-insights');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      if (error) {
-        console.error('Error fetching AI insights:', error);
-        setAiInsights([
-          'Welcome to shambaXchange! Start by adding your crops.',
-          'Track your income and expenses to understand farm profitability.',
-          'Check the Learning Hub for farming tips and best practices.'
-        ]);
-        return;
+      const { data, error } = await supabase.functions.invoke("ai-insights", {
+        body: { userId: user.id },
+      });
+
+      if (error) throw error;
+      
+      if (data?.insights) {
+        setAiInsights(data.insights);
       }
-
-      setAiInsights(data.insights || []);
     } catch (error) {
-      console.error('Error in fetchAIInsights:', error);
+      console.error("AI insights error:", error);
+      // Set fallback insights if API fails
       setAiInsights([
-        'Welcome to shambaXchange! Start by adding your crops.',
-        'Track your income and expenses to understand farm profitability.',
-        'Check the Learning Hub for farming tips and best practices.'
+        "Check weather conditions before planning your week's activities",
+        "Monitor your crop health regularly for optimal yields",
+        "Review current market prices to identify selling opportunities"
       ]);
     }
   };
@@ -226,62 +226,33 @@ const Dashboard = () => {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>AI Insights</CardTitle>
-            <CardDescription>Personalized recommendations for your farm</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5" />
+              AI Recommendations
+            </CardTitle>
+            <CardDescription>Personalized insights based on your crops, location, and market data</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 bg-primary/10 rounded-lg border-l-4 border-primary">
-              <p className="text-sm font-medium">🌱 Planting Recommendation</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Rain expected this week - ideal time to plant maize in your region
+          <CardContent>
+            {aiInsights.length > 0 ? (
+              <div className="space-y-3">
+                {aiInsights.map((insight, idx) => (
+                  <div 
+                    key={idx} 
+                    className="p-4 bg-primary/10 rounded-lg border-l-4 border-primary"
+                  >
+                    <p className="text-sm text-muted-foreground">{insight}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Add your crops and financial data to receive personalized AI recommendations.
               </p>
-            </div>
-            <div className="p-4 bg-secondary/10 rounded-lg border-l-4 border-secondary">
-              <p className="text-sm font-medium">💰 Market Opportunity</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Cabbage prices rising 15% in Nakuru - consider selling soon
-              </p>
-            </div>
-            <div className="p-4 bg-accent/10 rounded-lg border-l-4 border-accent">
-              <p className="text-sm font-medium">⚠️ Weather Alert</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Heavy rains forecasted next week - prepare drainage systems
-              </p>
-            </div>
+            )}
           </CardContent>
         </Card>
 
         <MyProduce onAddClick={() => setAddCropOpen(true)} />
-
-        <Card>
-          <CardHeader>
-            <CardTitle>AI Recommendations</CardTitle>
-            <CardDescription>Personalized insights for your farm</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 bg-primary/10 rounded-lg border-l-4 border-primary">
-              <p className="font-medium mb-1">Best Planting Opportunity</p>
-              <p className="text-sm text-muted-foreground">
-                Tomatoes show strong demand in Nakuru with 12% price increase. Consider planting 
-                if you have available land - harvest timing aligns with peak demand season.
-              </p>
-            </div>
-            <div className="p-4 bg-secondary/10 rounded-lg border-l-4 border-secondary">
-              <p className="font-medium mb-1">Selling Strategy</p>
-              <p className="text-sm text-muted-foreground">
-                Cabbage prices are rising. If you have ready stock, Nyeri market offers the 
-                best rates (KES 82/kg avg) and high demand.
-              </p>
-            </div>
-            <div className="p-4 bg-accent/10 rounded-lg border-l-4 border-accent">
-              <p className="font-medium mb-1">Price Alert</p>
-              <p className="text-sm text-muted-foreground">
-                Maize prices showing slight decline. Consider holding stock for 2-3 weeks 
-                as seasonal patterns suggest recovery.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
 
         <Card>
           <CardHeader>
