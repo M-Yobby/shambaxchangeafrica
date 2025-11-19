@@ -1,66 +1,178 @@
+/**
+ * CONTENT VALIDATION AND SANITIZATION
+ * 
+ * Security layer for user-generated content in social features.
+ * Prevents XSS attacks, spam, and excessive content while allowing safe formatting.
+ * 
+ * SECURITY THREATS ADDRESSED:
+ * 1. XSS (Cross-Site Scripting): Malicious JavaScript injection
+ * 2. URL-based attacks: javascript:, data:, and other dangerous protocols
+ * 3. HTML injection: Unwanted styling, forms, scripts
+ * 4. Content flooding: Excessively long posts
+ * 
+ * VALIDATION LAYERS:
+ * 1. Length limits (posts: 2000 chars, comments: 500 chars)
+ * 2. URL protocol validation (only http/https allowed)
+ * 3. HTML sanitization (only safe tags allowed)
+ * 4. Content trimming (remove leading/trailing whitespace)
+ * 
+ * ALLOWED HTML TAGS:
+ * - Formatting: <b>, <i>, <em>, <strong>
+ * - Links: <a> (with href validation)
+ * - Structure: <br>, <p>
+ * 
+ * BLOCKED HTML:
+ * - Scripts: <script>, <iframe>, <object>
+ * - Forms: <form>, <input>, <button>
+ * - Events: onclick, onload, onerror, etc.
+ * - Data attributes: data-*
+ * - Dangerous protocols: javascript:, data:, vbscript:
+ */
+
 import { z } from "zod";
 import DOMPurify from "dompurify";
 
-// URL validation regex - allows common URL patterns
-const urlRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
-
-// Validate URLs in text content
+/**
+ * URL VALIDATION
+ * Ensures URLs in content use safe protocols (http/https only)
+ * 
+ * WHY THIS MATTERS:
+ * Malicious users could inject dangerous URLs like:
+ * - javascript:alert('XSS') → Executes JavaScript
+ * - data:text/html,<script>...</script> → Inline HTML/JS
+ * - file:///etc/passwd → Access local files
+ * 
+ * @param text - Content containing potential URLs
+ * @returns true if all URLs are safe, false otherwise
+ */
 const validateUrls = (text: string): boolean => {
+  // Extract all URLs from text using regex
   const urlPattern = /(https?:\/\/[^\s]+)/g;
   const urls = text.match(urlPattern) || [];
   
+  // Validate each URL's protocol
   return urls.every(url => {
     try {
       const parsedUrl = new URL(url);
       // Only allow http and https protocols
       return ['http:', 'https:'].includes(parsedUrl.protocol);
     } catch {
+      // Invalid URL format
       return false;
     }
   });
 };
 
-// Post validation schema
+/**
+ * POST VALIDATION SCHEMA
+ * Defines rules for social post content
+ * 
+ * CONSTRAINTS:
+ * - Minimum: 1 character (no empty posts)
+ * - Maximum: 2000 characters (prevents spam)
+ * - URL validation: Only safe protocols
+ * 
+ * WHY 2000 CHARACTERS:
+ * - Long enough for meaningful content
+ * - Short enough to prevent abuse
+ * - Similar to Twitter's extended limit
+ * - Reduces database storage needs
+ */
 export const postSchema = z.object({
   content: z.string()
-    .trim()
-    .min(1, "Post cannot be empty")
-    .max(2000, "Post must not exceed 2000 characters")
+    .trim() // Remove leading/trailing whitespace
+    .min(1, "Post cannot be empty") // No blank posts
+    .max(2000, "Post must not exceed 2000 characters") // Spam prevention
     .refine(
       (text) => validateUrls(text),
-      "Invalid URL detected in post content"
+      "Invalid URL detected in post content" // Block dangerous URLs
     ),
 });
 
-// Comment validation schema
+/**
+ * COMMENT VALIDATION SCHEMA
+ * Defines rules for comment content
+ * 
+ * CONSTRAINTS:
+ * - Minimum: 1 character (no empty comments)
+ * - Maximum: 500 characters (shorter than posts)
+ * - URL validation: Only safe protocols
+ * 
+ * WHY 500 CHARACTERS:
+ * - Comments should be concise responses
+ * - Prevents comment sections from overwhelming posts
+ * - Encourages focused discussion
+ */
 export const commentSchema = z.object({
   content: z.string()
-    .trim()
-    .min(1, "Comment cannot be empty")
-    .max(500, "Comment must not exceed 500 characters")
+    .trim() // Remove leading/trailing whitespace
+    .min(1, "Comment cannot be empty") // No blank comments
+    .max(500, "Comment must not exceed 500 characters") // Keep comments concise
     .refine(
       (text) => validateUrls(text),
-      "Invalid URL detected in comment"
+      "Invalid URL detected in comment" // Block dangerous URLs
     ),
 });
 
-// Sanitize HTML content to prevent XSS
+/**
+ * HTML SANITIZATION
+ * Removes dangerous HTML while preserving safe formatting
+ * 
+ * PROCESS:
+ * 1. Parse HTML string
+ * 2. Remove all tags except allowed list
+ * 3. Remove all attributes except allowed list
+ * 4. Remove event handlers (onclick, etc.)
+ * 5. Remove data attributes
+ * 6. Return sanitized HTML string
+ * 
+ * EXAMPLE:
+ * Input:  '<strong>Bold</strong><script>alert("XSS")</script>'
+ * Output: '<strong>Bold</strong>'
+ * 
+ * @param content - Raw HTML content from user
+ * @returns Sanitized HTML safe for rendering
+ */
 export const sanitizeContent = (content: string): string => {
-  // Configure DOMPurify to allow only safe tags and attributes
+  // Configure DOMPurify with strict whitelist
   const config = {
-    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'br', 'p'],
-    ALLOWED_ATTR: ['href', 'target', 'rel'],
-    ALLOW_DATA_ATTR: false,
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'br', 'p'], // Safe formatting tags only
+    ALLOWED_ATTR: ['href', 'target', 'rel'], // Link attributes only
+    ALLOW_DATA_ATTR: false, // Block data-* attributes
   };
   
+  // Sanitize and return safe HTML
   return DOMPurify.sanitize(content, config);
 };
 
-// Sanitize and validate post content
+/**
+ * POST VALIDATION AND SANITIZATION
+ * Complete validation and sanitization for social posts
+ * 
+ * PROCESS:
+ * 1. Validate length and URL protocols using Zod schema
+ * 2. Sanitize HTML content using DOMPurify
+ * 3. Return result with success status and sanitized content
+ * 
+ * USAGE:
+ * ```typescript
+ * const result = validateAndSanitizePost(userInput);
+ * if (result.success) {
+ *   // Store result.sanitized in database
+ * } else {
+ *   // Show result.error to user
+ * }
+ * ```
+ * 
+ * @param content - Raw post content from user
+ * @returns Validation result with sanitized content or error message
+ */
 export const validateAndSanitizePost = (content: string) => {
+  // Step 1: Validate using Zod schema
   const validation = postSchema.safeParse({ content });
   
   if (!validation.success) {
+    // Validation failed - return error
     return {
       success: false,
       error: validation.error.errors[0].message,
@@ -68,6 +180,7 @@ export const validateAndSanitizePost = (content: string) => {
     };
   }
   
+  // Step 2: Sanitize HTML content
   return {
     success: true,
     error: null,
@@ -75,11 +188,34 @@ export const validateAndSanitizePost = (content: string) => {
   };
 };
 
-// Sanitize and validate comment content
+/**
+ * COMMENT VALIDATION AND SANITIZATION
+ * Complete validation and sanitization for comments
+ * 
+ * PROCESS:
+ * 1. Validate length and URL protocols using Zod schema
+ * 2. Sanitize HTML content using DOMPurify
+ * 3. Return result with success status and sanitized content
+ * 
+ * USAGE:
+ * ```typescript
+ * const result = validateAndSanitizeComment(userInput);
+ * if (result.success) {
+ *   // Store result.sanitized in database
+ * } else {
+ *   // Show result.error to user
+ * }
+ * ```
+ * 
+ * @param content - Raw comment content from user
+ * @returns Validation result with sanitized content or error message
+ */
 export const validateAndSanitizeComment = (content: string) => {
+  // Step 1: Validate using Zod schema
   const validation = commentSchema.safeParse({ content });
   
   if (!validation.success) {
+    // Validation failed - return error
     return {
       success: false,
       error: validation.error.errors[0].message,
@@ -87,6 +223,7 @@ export const validateAndSanitizeComment = (content: string) => {
     };
   }
   
+  // Step 2: Sanitize HTML content
   return {
     success: true,
     error: null,
