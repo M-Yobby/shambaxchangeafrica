@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Calculator, BookOpen, TrendingUp, Cloud, Droplets, Wind, Loader2, Sparkles } from "lucide-react";
+import { Plus, Calculator, BookOpen, TrendingUp, Cloud, Droplets, Wind, Loader2, Sparkles, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import AIChatbot from "@/components/AIChatbot";
 import AddCropDialog from "@/components/AddCropDialog";
 import AddLedgerDialog from "@/components/AddLedgerDialog";
+import YieldCalculatorDialog from "@/components/YieldCalculatorDialog";
 import MyProduce from "@/components/MyProduce";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
@@ -37,6 +38,7 @@ const Dashboard = () => {
   const [ledgerSummary, setLedgerSummary] = useState<LedgerSummary>({ totalIncome: 0, totalExpenses: 0 });
   const [addCropOpen, setAddCropOpen] = useState(false);
   const [addLedgerOpen, setAddLedgerOpen] = useState(false);
+  const [yieldCalculatorOpen, setYieldCalculatorOpen] = useState(false);
   const [aiInsights, setAiInsights] = useState<string[]>([]);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -160,8 +162,8 @@ const Dashboard = () => {
   };
 
   const quickActions = [
-    { icon: Plus, label: "Add Crop", color: "bg-primary", action: () => setAddCropOpen(true) },
-    { icon: Calculator, label: "Add Expense/Income", color: "bg-secondary", action: () => setAddLedgerOpen(true) },
+    { icon: Calculator, label: "Yield Calculator", color: "bg-primary", action: () => setYieldCalculatorOpen(true) },
+    { icon: DollarSign, label: "Add Expense/Income", color: "bg-secondary", action: () => setAddLedgerOpen(true) },
     { icon: BookOpen, label: "Learning Hub", color: "bg-accent", action: () => navigate("/learning") },
     { icon: TrendingUp, label: "Market Prices", color: "bg-success", action: () => navigate("/market-intel") },
   ];
@@ -377,6 +379,10 @@ const Dashboard = () => {
         </Card>
       </div>
 
+      <YieldCalculatorDialog 
+        open={yieldCalculatorOpen} 
+        onOpenChange={setYieldCalculatorOpen}
+      />
       <AddCropDialog 
         open={addCropOpen} 
         onOpenChange={setAddCropOpen}
