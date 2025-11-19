@@ -1,27 +1,57 @@
-/**
- * useNotifications Hook
- * 
- * Custom React hook that manages browser push notifications for the application.
- * This hook handles notification permissions, service worker registration, and
- * displaying push notifications to users.
- * 
- * Key Features:
- * - Detects browser support for notifications
- * - Requests and manages notification permissions
- * - Registers service worker for background notifications
- * - Displays push notifications with custom content
- * 
- * @returns {Object} Notification management functions and state
- * @property {NotificationPermission} permission - Current notification permission status ('default', 'granted', 'denied')
- * @property {boolean} isSupported - Whether browser supports notifications and service workers
- * @property {Function} requestPermission - Requests notification permission from user
- * @property {Function} showNotification - Displays a push notification
- */
-
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+/**
+ * Custom hook for managing browser push notifications.
+ * 
+ * Provides functionality to check browser support, request notification permissions,
+ * register service workers, and display push notifications. This hook is essential
+ * for the platform's engagement strategy, enabling alerts for orders, messages,
+ * price changes, weather warnings, and streak reminders.
+ * 
+ * @returns {Object} An object containing:
+ *   - `permission` {NotificationPermission} - Current notification permission state ('default', 'granted', or 'denied')
+ *   - `isSupported` {boolean} - Whether the browser supports notifications and service workers
+ *   - `requestPermission` {() => Promise<boolean>} - Function to request notification permission from user
+ *   - `showNotification` {(title: string, options?: NotificationOptions) => Promise<void>} - Function to display a notification
+ * 
+ * @example
+ * ```tsx
+ * function NotificationButton() {
+ *   const { permission, isSupported, requestPermission, showNotification } = useNotifications();
+ *   
+ *   if (!isSupported) {
+ *     return <div>Notifications not supported in your browser</div>;
+ *   }
+ *   
+ *   const handleEnableNotifications = async () => {
+ *     const granted = await requestPermission();
+ *     
+ *     if (granted) {
+ *       await showNotification('Welcome!', {
+ *         body: 'You will now receive important farming updates',
+ *         icon: '/icon.png'
+ *       });
+ *     }
+ *   };
+ *   
+ *   return (
+ *     <button onClick={handleEnableNotifications}>
+ *       {permission === 'granted' ? 'Notifications Enabled' : 'Enable Notifications'}
+ *     </button>
+ *   );
+ * }
+ * ```
+ * 
+ * @remarks
+ * - Automatically checks browser support on mount
+ * - Registers service worker at `/sw.js` when permission is granted
+ * - Includes default icon (`/icon-192x192.png`) and badge for notifications
+ * - Shows toast feedback when permission is granted or denied
+ * - Service worker enables offline functionality and background notifications
+ * - Critical for daily engagement: weather alerts, price changes, order updates, streak reminders
+ */
 export const useNotifications = () => {
   // State for tracking notification permission status (default, granted, denied)
   const [permission, setPermission] = useState<NotificationPermission>('default');

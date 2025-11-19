@@ -33,17 +33,26 @@ import { z } from "zod";
 import DOMPurify from "dompurify";
 
 /**
- * URL VALIDATION
- * Ensures URLs in content use safe protocols (http/https only)
+ * Validates that all URLs in a text string use safe protocols (http or https).
  * 
- * WHY THIS MATTERS:
- * Malicious users could inject dangerous URLs like:
- * - javascript:alert('XSS') → Executes JavaScript
- * - data:text/html,<script>...</script> → Inline HTML/JS
- * - file:///etc/passwd → Access local files
+ * This prevents dangerous protocols like javascript:, data:, or file: which could
+ * be used for XSS attacks or accessing local files.
  * 
- * @param text - Content containing potential URLs
- * @returns true if all URLs are safe, false otherwise
+ * @param {string} text - The text content to check for URLs
+ * @returns {boolean} True if all URLs are safe, false if any dangerous URLs are found
+ * 
+ * @example
+ * ```ts
+ * validateUrls("Check out https://example.com") // Returns true
+ * validateUrls("Click here: javascript:alert('XSS')") // Returns false
+ * validateUrls("Safe http://site.com and https://secure.com") // Returns true
+ * ```
+ * 
+ * @remarks
+ * - Uses regex to find all URLs in the text
+ * - Only allows http:// and https:// protocols
+ * - Blocks javascript:, data:, file:, and other dangerous protocols
+ * - Returns true if no URLs are found (empty text is safe)
  */
 const validateUrls = (text: string): boolean => {
   // Extract all URLs from text using regex
@@ -115,23 +124,29 @@ export const commentSchema = z.object({
 });
 
 /**
- * HTML SANITIZATION
- * Removes dangerous HTML while preserving safe formatting
+ * Sanitizes HTML content using DOMPurify to remove dangerous elements.
  * 
- * PROCESS:
- * 1. Parse HTML string
- * 2. Remove all tags except allowed list
- * 3. Remove all attributes except allowed list
- * 4. Remove event handlers (onclick, etc.)
- * 5. Remove data attributes
- * 6. Return sanitized HTML string
+ * Removes all potentially dangerous HTML while preserving safe formatting tags.
+ * This is the final security layer after validation.
  * 
- * EXAMPLE:
- * Input:  '<strong>Bold</strong><script>alert("XSS")</script>'
- * Output: '<strong>Bold</strong>'
+ * @param {string} content - Raw HTML content from user input
+ * @returns {string} Sanitized HTML safe for rendering
  * 
- * @param content - Raw HTML content from user
- * @returns Sanitized HTML safe for rendering
+ * @example
+ * ```ts
+ * const userInput = '<p>Hello <script>alert("XSS")</script></p>';
+ * const safe = sanitizeContent(userInput);
+ * // Returns: '<p>Hello </p>' (script removed)
+ * 
+ * const formatted = '<p>Hello <b>world</b>!</p>';
+ * const safe2 = sanitizeContent(formatted);
+ * // Returns: '<p>Hello <b>world</b>!</p>' (safe tags preserved)
+ * ```
+ * 
+ * @remarks
+ * - Allowed tags: <b>, <i>, <em>, <strong>, <a>, <br>, <p>
+ * - Allowed attributes: href, target, rel (on <a> tags only)
+ * - Stripped: All scripts, forms, event handlers, data attributes
  */
 export const sanitizeContent = (content: string): string => {
   // Configure DOMPurify with strict whitelist
@@ -146,26 +161,20 @@ export const sanitizeContent = (content: string): string => {
 };
 
 /**
- * POST VALIDATION AND SANITIZATION
- * Complete validation and sanitization for social posts
+ * Validates and sanitizes post content before saving to database.
  * 
- * PROCESS:
- * 1. Validate length and URL protocols using Zod schema
- * 2. Sanitize HTML content using DOMPurify
- * 3. Return result with success status and sanitized content
+ * @param {string} content - Raw post content from user input
+ * @returns {Object} Validation result with success status, sanitized content, or error message
  * 
- * USAGE:
- * ```typescript
- * const result = validateAndSanitizePost(userInput);
+ * @example
+ * ```tsx
+ * const result = validateAndSanitizePost(rawContent);
  * if (result.success) {
- *   // Store result.sanitized in database
+ *   await supabase.from('posts').insert({ content: result.sanitized });
  * } else {
- *   // Show result.error to user
+ *   toast({ title: "Error", description: result.error });
  * }
  * ```
- * 
- * @param content - Raw post content from user
- * @returns Validation result with sanitized content or error message
  */
 export const validateAndSanitizePost = (content: string) => {
   // Step 1: Validate using Zod schema
@@ -189,16 +198,22 @@ export const validateAndSanitizePost = (content: string) => {
 };
 
 /**
- * COMMENT VALIDATION AND SANITIZATION
- * Complete validation and sanitization for comments
+ * Validates and sanitizes comment content before saving to database.
  * 
- * PROCESS:
- * 1. Validate length and URL protocols using Zod schema
- * 2. Sanitize HTML content using DOMPurify
- * 3. Return result with success status and sanitized content
+ * @param {string} content - Raw comment content from user input
+ * @returns {Object} Validation result with success status, sanitized content, or error message
  * 
- * USAGE:
- * ```typescript
+ * @example
+ * ```tsx
+ * const result = validateAndSanitizeComment(rawComment);
+ * if (result.success) {
+ *   await supabase.from('comments').insert({ content: result.sanitized });
+ * } else {
+ *   toast({ title: "Error", description: result.error });
+ * }
+ * ```
+ */
+export const validateAndSanitizeComment = (content: string) => {
  * const result = validateAndSanitizeComment(userInput);
  * if (result.success) {
  *   // Store result.sanitized in database

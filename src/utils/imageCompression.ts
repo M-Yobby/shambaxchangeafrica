@@ -40,23 +40,44 @@
  */
 
 /**
- * Compresses an image file to reduce size while maintaining quality
+ * Compresses an image file to reduce its size while maintaining quality.
  * 
- * @param file - Original image file to compress
- * @param maxWidth - Maximum width in pixels (default: 1920)
- * @param maxHeight - Maximum height in pixels (default: 1920)
- * @param quality - JPEG quality 0-1 (default: 0.8 = 80%)
- * @returns Compressed image file
+ * Takes an image file and reduces its dimensions and file size by:
+ * 1. Resizing to fit within maxWidth x maxHeight while preserving aspect ratio
+ * 2. Converting to JPEG format for optimal compression
+ * 3. Applying quality compression (default 80%)
  * 
- * PROCESS:
- * 1. Check file type (skip videos)
- * 2. Read file as data URL
- * 3. Load image into Image element
- * 4. Calculate new dimensions (maintain aspect ratio)
- * 5. Draw resized image to canvas
- * 6. Convert canvas to JPEG blob with quality setting
- * 7. Create new File from compressed blob
- * 8. Return compressed file
+ * Videos are returned unchanged as they require different compression techniques.
+ * 
+ * @param {File} file - The image or video file to compress
+ * @param {number} [maxWidth=1920] - Maximum width in pixels
+ * @param {number} [maxHeight=1920] - Maximum height in pixels
+ * @param {number} [quality=0.8] - Compression quality from 0 to 1 (0.8 = 80%)
+ * @returns {Promise<File>} Promise resolving to the compressed File object
+ * 
+ * @example
+ * ```tsx
+ * const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+ *   const file = event.target.files?.[0];
+ *   if (!file) return;
+ *   
+ *   // Compress with defaults (1920x1920, 80% quality)
+ *   const compressed = await compressImage(file);
+ *   
+ *   // Or customize compression settings
+ *   const customCompressed = await compressImage(file, 1280, 1280, 0.9);
+ *   
+ *   // Upload the compressed file
+ *   await uploadToStorage(compressed);
+ * };
+ * ```
+ * 
+ * @remarks
+ * - Videos are returned unchanged (compression not applied)
+ * - Original aspect ratio is always preserved
+ * - Output format is always JPEG for maximum compatibility
+ * - Compression is done client-side using Canvas API
+ * - Typical compression results in 60-80% file size reduction
  */
 export const compressImage = async (
   file: File,
