@@ -44,25 +44,28 @@ export const NotificationPermissionPrompt = () => {
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5">
-      <Card className="p-4 max-w-sm shadow-lg border-primary/20">
-        <div className="flex items-start gap-3">
-          <div className="bg-primary/10 p-2 rounded-full">
+    <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5 max-w-sm">
+      <Card className="p-4 shadow-lg border-primary/20 relative">
+        <Button 
+          size="sm" 
+          variant="ghost" 
+          onClick={handleDismiss}
+          className="absolute top-2 right-2 h-8 w-8 p-0 hover:bg-muted"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+        <div className="flex items-start gap-3 pr-8">
+          <div className="bg-primary/10 p-2 rounded-full shrink-0">
             <Bell className="h-5 w-5 text-primary" />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-sm mb-1">Stay Updated</h3>
             <p className="text-xs text-muted-foreground mb-3">
               Get instant alerts for orders, messages, weather warnings, and daily streak reminders
             </p>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleEnable}>
-                Enable Notifications
-              </Button>
-              <Button size="sm" variant="ghost" onClick={handleDismiss}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button size="sm" onClick={handleEnable} className="w-full sm:w-auto">
+              Enable Notifications
+            </Button>
           </div>
         </div>
       </Card>
