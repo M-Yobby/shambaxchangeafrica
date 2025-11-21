@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Heart, MessageCircle, Share2, Send, TrendingUp, Loader2, Image as ImageIcon, Trophy, RefreshCw, DollarSign, Users, Flame, MapPin } from "lucide-react";
+import { Heart, MessageCircle, Share2, Send, TrendingUp, Loader2, Image as ImageIcon, Trophy, RefreshCw, DollarSign, Users, Flame, MapPin, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
@@ -95,6 +95,7 @@ const Social = () => {
   const [isPulling, setIsPulling] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const feedContainerRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number>(0);
@@ -103,11 +104,21 @@ const Social = () => {
   const { completeReferral } = useCompleteReferral();
 
   useEffect(() => {
+    fetchCurrentUser();
     fetchPosts();
     fetchTrendingPosts();
     fetchLeaderboards();
     fetchRegions();
   }, []);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+    }
+  };
 
   // Infinite scroll observer
   useEffect(() => {
@@ -462,6 +473,39 @@ const Social = () => {
     }
   };
 
+  const handleDeletePost = async (postId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("posts")
+        .delete()
+        .eq("id", postId)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Post deleted",
+        description: "Your post has been removed",
+      });
+      
+      // Refresh posts
+      setPage(0);
+      setHasMore(true);
+      fetchPosts(0, false);
+      fetchTrendingPosts();
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete post",
+        variant: "destructive",
+      });
+    }
+  };
+
   const fetchRegions = async () => {
     try {
       const { data, error } = await supabase
@@ -717,6 +761,16 @@ const Social = () => {
                               {post.profiles?.location || "Kenya"} • {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
                             </p>
                           </div>
+                          {currentUserId === post.user_id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeletePost(post.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
                         </div>
                         <div 
                           className="text-sm mb-2 whitespace-pre-wrap"
@@ -755,7 +809,12 @@ const Social = () => {
                             <span className="text-sm">{post.shares_count || 0}</span>
                           </button>
                         </div>
-                        {showComments === post.id && <CommentSection postId={post.id} />}
+                        {showComments === post.id && (
+                          <CommentSection 
+                            postId={post.id} 
+                            postOwnerId={post.user_id}
+                          />
+                        )}
                       </div>
                     </div>
                   </CardContent>
