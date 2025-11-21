@@ -85,9 +85,15 @@ export const LazyMedia = ({
    * - Gives media time to load before user sees it
    * - Prevents "pop-in" effect
    * - Balances performance with user experience
+   * 
+   * FALLBACK: If observer doesn't fire within 100ms, load anyway
+   * This handles cases where element is already in viewport on mount
    */
   useEffect(() => {
-    if (!mediaRef.current) return;
+    const element = mediaRef.current;
+    if (!element) return;
+
+    let timeoutId: NodeJS.Timeout;
 
     // Create Intersection Observer
     const observer = new IntersectionObserver(
@@ -98,6 +104,8 @@ export const LazyMedia = ({
             setIsInView(true);
             // Disconnect observer (only need to detect once)
             observer.disconnect();
+            // Clear fallback timeout
+            clearTimeout(timeoutId);
           }
         });
       },
@@ -107,10 +115,20 @@ export const LazyMedia = ({
     );
 
     // Start observing media container
-    observer.observe(mediaRef.current);
+    observer.observe(element);
 
-    // Cleanup: Disconnect observer on unmount
-    return () => observer.disconnect();
+    // Fallback: If observer doesn't fire within 100ms (element likely already in view)
+    // load the media anyway to prevent infinite skeleton
+    timeoutId = setTimeout(() => {
+      setIsInView(true);
+      observer.disconnect();
+    }, 100);
+
+    // Cleanup: Disconnect observer on unmount and clear timeout
+    return () => {
+      observer.disconnect();
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   /**
