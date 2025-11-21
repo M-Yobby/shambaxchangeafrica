@@ -40,7 +40,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send } from "lucide-react";
+import { Send, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { validateAndSanitizeComment } from "@/utils/contentValidation";
@@ -62,22 +62,34 @@ interface Comment {
 
 interface CommentSectionProps {
   postId: string; // Post these comments belong to
+  postOwnerId: string; // ID of the post owner
 }
 
-const CommentSection = ({ postId }: CommentSectionProps) => {
+const CommentSection = ({ postId, postOwnerId }: CommentSectionProps) => {
   // COMMENT STATE
   const [comments, setComments] = useState<Comment[]>([]); // All comments for this post
   const [newComment, setNewComment] = useState(""); // Comment being typed
   const [loading, setLoading] = useState(false); // Submission in progress
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const { toast } = useToast();
 
   /**
    * INITIALIZATION
-   * Fetch comments when component mounts or postId changes
+   * Fetch comments and current user when component mounts or postId changes
    */
   useEffect(() => {
+    fetchCurrentUser();
     fetchComments();
   }, [postId]);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+    }
+  };
 
   /**
    * FETCH COMMENTS
@@ -210,6 +222,32 @@ const CommentSection = ({ postId }: CommentSectionProps) => {
     }
   };
 
+  /**
+   * HANDLE DELETE COMMENT
+   * Deletes a comment (allowed for comment owner or post owner)
+   */
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      const { error } = await supabase
+        .from("comments")
+        .delete()
+        .eq("id", commentId);
+
+      if (error) throw error;
+
+      toast({
+        description: "Comment deleted",
+      });
+      fetchComments(); // Refresh comments list
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      toast({
+        description: "Failed to delete comment",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="mt-4 pt-4 border-t space-y-3">
       {comments.map((comment) => (
@@ -220,11 +258,23 @@ const CommentSection = ({ postId }: CommentSectionProps) => {
             </AvatarFallback>
           </Avatar>
           <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-xs">{comment.profiles?.full_name || "Farmer"}</span>
-              <span className="text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-              </span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-xs">{comment.profiles?.full_name || "Farmer"}</span>
+                <span className="text-xs text-muted-foreground">
+                  {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                </span>
+              </div>
+              {(currentUserId === comment.user_id || currentUserId === postOwnerId) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => handleDeleteComment(comment.id)}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              )}
             </div>
             <div 
               className="text-sm"
